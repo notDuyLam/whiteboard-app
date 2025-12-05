@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "whiteboard-app (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "whiteboard-app (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
