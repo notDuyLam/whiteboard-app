@@ -17,9 +17,9 @@ public class Profile
     /// <summary>
     /// Gets or sets the name of the profile.
     /// </summary>
-    [Required]
+    [Required(AllowEmptyStrings = false)]
     [MaxLength(100)]
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the theme preference. Values: "Light", "Dark", "System".
@@ -56,7 +56,7 @@ public class Profile
     /// <summary>
     /// Gets or sets the default fill color in hex format (e.g., "#FF0000" or "Transparent").
     /// </summary>
-    [MaxLength(9)]
+    [MaxLength(20)]
     public string DefaultFillColor { get; set; } = "Transparent";
 
     /// <summary>
