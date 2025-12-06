@@ -122,13 +122,21 @@ namespace whiteboard_app
                     }
                 }
                 
-                // Seed initial data
+                // Seed initial data (force seed if empty)
                 DbInitializer.Initialize(context);
+                
+                // Double-check: if still no profiles, force seed
+                var finalProfileCount = context.Profiles.Count();
+                if (finalProfileCount == 0)
+                {
+                    DbInitializer.ForceSeed(context);
+                }
+                
+                // Force refresh
+                context.SaveChanges();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Log error - in production, use proper logging
-                System.Diagnostics.Debug.WriteLine($"Database initialization error: {ex.Message}");
                 // Try to continue - database might already exist
             }
         }

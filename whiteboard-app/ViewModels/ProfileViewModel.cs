@@ -93,6 +93,13 @@ public partial class ProfileViewModel : ObservableObject
             {
                 Profiles.Add(profile);
             }
+            
+            // Force notify property change to ensure UI updates
+            OnPropertyChanged(nameof(Profiles));
+        }
+        catch (Exception)
+        {
+            // Error handling - in production, show error message to user
         }
         finally
         {
