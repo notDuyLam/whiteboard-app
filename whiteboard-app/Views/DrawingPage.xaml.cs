@@ -212,21 +212,122 @@ public sealed partial class DrawingPage : Page
         }
     }
 
-    private void EditShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void EditShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (DrawingCanvasControl?.SelectedShape == null)
             return;
 
-        // Get selected shape properties and show edit dialog
-        // For now, just show a message - full editing will be implemented later
+        // Get selected shape properties
+        var (strokeColor, strokeThickness, fillColor, strokeStyle) = DrawingCanvasControl.GetSelectedShapeProperties();
+
         var dialog = new ContentDialog
         {
-            Title = "Edit Shape",
-            Content = "Shape editing feature will be implemented in the next phase.",
-            CloseButtonText = "OK",
+            Title = "Edit Shape Properties",
+            PrimaryButtonText = "Apply",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
             XamlRoot = this.XamlRoot
         };
-        _ = dialog.ShowAsync();
+
+        var stackPanel = new StackPanel { Spacing = 16 };
+
+        // Stroke Style
+        var strokeStyleComboBox = new ComboBox
+        {
+            Header = "Stroke Style",
+            SelectedIndex = strokeStyle switch
+            {
+                StrokeStyleEnum.Solid => 0,
+                StrokeStyleEnum.Dash => 1,
+                StrokeStyleEnum.Dot => 2,
+                _ => 0
+            }
+        };
+        strokeStyleComboBox.Items.Add(new ComboBoxItem { Content = "Solid", Tag = "Solid" });
+        strokeStyleComboBox.Items.Add(new ComboBoxItem { Content = "Dash", Tag = "Dash" });
+        strokeStyleComboBox.Items.Add(new ComboBoxItem { Content = "Dot", Tag = "Dot" });
+        stackPanel.Children.Add(strokeStyleComboBox);
+
+        // Stroke Color
+        var strokeColorTextBox = new TextBox
+        {
+            Header = "Stroke Color (Hex)",
+            Text = strokeColor,
+            PlaceholderText = "#000000"
+        };
+        stackPanel.Children.Add(strokeColorTextBox);
+
+        // Stroke Thickness
+        var thicknessPanel = new StackPanel();
+        var thicknessLabel = new TextBlock
+        {
+            Text = "Stroke Thickness",
+            Style = (Microsoft.UI.Xaml.Style)Microsoft.UI.Xaml.Application.Current.Resources["CaptionTextBlockStyle"],
+            Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 8)
+        };
+        var strokeThicknessSlider = new Slider
+        {
+            Minimum = 0.5,
+            Maximum = 50,
+            Value = strokeThickness,
+            TickFrequency = 0.5,
+            TickPlacement = Microsoft.UI.Xaml.Controls.Primitives.TickPlacement.BottomRight
+        };
+        var thicknessValueText = new TextBlock
+        {
+            Text = strokeThickness.ToString("F1"),
+            HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
+            Style = (Microsoft.UI.Xaml.Style)Microsoft.UI.Xaml.Application.Current.Resources["CaptionTextBlockStyle"]
+        };
+        strokeThicknessSlider.ValueChanged += (s, args) =>
+        {
+            thicknessValueText.Text = args.NewValue.ToString("F1");
+        };
+        thicknessPanel.Children.Add(thicknessLabel);
+        thicknessPanel.Children.Add(strokeThicknessSlider);
+        thicknessPanel.Children.Add(thicknessValueText);
+        stackPanel.Children.Add(thicknessPanel);
+
+        // Fill Color
+        var fillColorTextBox = new TextBox
+        {
+            Header = "Fill Color (Hex or Transparent)",
+            Text = fillColor,
+            PlaceholderText = "Transparent or #RRGGBB"
+        };
+        stackPanel.Children.Add(fillColorTextBox);
+
+        var scrollViewer = new ScrollViewer
+        {
+            MaxHeight = 400,
+            Content = stackPanel
+        };
+        dialog.Content = scrollViewer;
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            // Get selected stroke style
+            var selectedStrokeStyle = StrokeStyleEnum.Solid;
+            if (strokeStyleComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string styleTag)
+            {
+                selectedStrokeStyle = styleTag switch
+                {
+                    "Solid" => StrokeStyleEnum.Solid,
+                    "Dash" => StrokeStyleEnum.Dash,
+                    "Dot" => StrokeStyleEnum.Dot,
+                    _ => StrokeStyleEnum.Solid
+                };
+            }
+
+            // Update shape properties
+            DrawingCanvasControl.UpdateSelectedShapeProperties(
+                strokeColorTextBox.Text.Trim(),
+                strokeThicknessSlider.Value,
+                fillColorTextBox.Text.Trim(),
+                selectedStrokeStyle
+            );
+        }
     }
 
     private void DeleteShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -234,9 +335,9 @@ public sealed partial class DrawingPage : Page
         if (DrawingCanvasControl?.SelectedShape == null)
             return;
 
-        // Remove the selected shape from canvas
+        // Remove the selected shape using the proper method
         var selectedShape = DrawingCanvasControl.SelectedShape;
-        DrawingCanvasControl.Children.Remove(selectedShape);
+        DrawingCanvasControl.RemoveShape(selectedShape);
         
         // Clear selection
         DrawingCanvasControl.IsSelectionMode = false;

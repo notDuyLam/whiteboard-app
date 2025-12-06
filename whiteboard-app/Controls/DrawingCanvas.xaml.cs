@@ -1264,6 +1264,162 @@ public sealed partial class DrawingCanvas : XamlCanvas
         _selectionBorder.Height = bounds.Height + 4;
     }
 
+    /// <summary>
+    /// Gets the properties of the selected shape.
+    /// </summary>
+    public (string StrokeColor, double StrokeThickness, string FillColor, StrokeStyle? StrokeStyle) GetSelectedShapeProperties()
+    {
+        if (_selectedShape == null)
+            return ("#000000", 2.0, "Transparent", whiteboard_app_data.Enums.StrokeStyle.Solid);
+
+        var strokeColor = "#000000";
+        var strokeThickness = 2.0;
+        var fillColor = "Transparent";
+        StrokeStyle? strokeStyle = whiteboard_app_data.Enums.StrokeStyle.Solid;
+
+        if (_selectedShape is Line line)
+        {
+            strokeColor = ((SolidColorBrush?)line.Stroke)?.Color.ToString() ?? "#000000";
+            strokeThickness = line.StrokeThickness;
+            fillColor = "Transparent";
+            strokeStyle = GetStrokeStyleFromShape(line);
+        }
+        else if (_selectedShape is Rectangle rect)
+        {
+            strokeColor = ((SolidColorBrush?)rect.Stroke)?.Color.ToString() ?? "#000000";
+            strokeThickness = rect.StrokeThickness;
+            fillColor = rect.Fill == null ? "Transparent" : ((SolidColorBrush?)rect.Fill)?.Color.ToString() ?? "Transparent";
+            strokeStyle = GetStrokeStyleFromShape(rect);
+        }
+        else if (_selectedShape is Ellipse ellipse)
+        {
+            strokeColor = ((SolidColorBrush?)ellipse.Stroke)?.Color.ToString() ?? "#000000";
+            strokeThickness = ellipse.StrokeThickness;
+            fillColor = ellipse.Fill == null ? "Transparent" : ((SolidColorBrush?)ellipse.Fill)?.Color.ToString() ?? "Transparent";
+            strokeStyle = GetStrokeStyleFromShape(ellipse);
+        }
+        else if (_selectedShape is Polygon polygon)
+        {
+            strokeColor = ((SolidColorBrush?)polygon.Stroke)?.Color.ToString() ?? "#000000";
+            strokeThickness = polygon.StrokeThickness;
+            fillColor = polygon.Fill == null ? "Transparent" : ((SolidColorBrush?)polygon.Fill)?.Color.ToString() ?? "Transparent";
+            strokeStyle = GetStrokeStyleFromShape(polygon);
+        }
+
+        return (strokeColor, strokeThickness, fillColor, strokeStyle);
+    }
+
+    /// <summary>
+    /// Gets the stroke style from a shape.
+    /// </summary>
+    private StrokeStyle? GetStrokeStyleFromShape(XamlShape shape)
+    {
+        if (shape.StrokeDashArray == null || shape.StrokeDashArray.Count == 0)
+            return whiteboard_app_data.Enums.StrokeStyle.Solid;
+        
+        // Check for dash pattern
+        if (shape.StrokeDashArray.Count == 2 && shape.StrokeDashArray[0] == 2 && shape.StrokeDashArray[1] == 2)
+            return whiteboard_app_data.Enums.StrokeStyle.Dash;
+        
+        // Check for dot pattern
+        if (shape.StrokeDashArray.Count == 2 && shape.StrokeDashArray[0] == 0 && shape.StrokeDashArray[1] == 2)
+            return whiteboard_app_data.Enums.StrokeStyle.Dot;
+        
+        return whiteboard_app_data.Enums.StrokeStyle.Solid;
+    }
+
+    /// <summary>
+    /// Updates the properties of the selected shape.
+    /// </summary>
+    public void UpdateSelectedShapeProperties(string strokeColor, double strokeThickness, string fillColor, StrokeStyle? strokeStyle)
+    {
+        if (_selectedShape == null)
+            return;
+
+        var strokeBrush = CreateStrokeBrush(strokeColor);
+        var fillBrush = fillColor == "Transparent" ? null : new SolidColorBrush(ParseHexColor(fillColor));
+
+        if (_selectedShape is Line line)
+        {
+            line.Stroke = strokeBrush;
+            line.StrokeThickness = strokeThickness;
+            ApplyStrokeStyleWithStyle(line, strokeStyle);
+        }
+        else if (_selectedShape is Rectangle rect)
+        {
+            rect.Stroke = strokeBrush;
+            rect.StrokeThickness = strokeThickness;
+            rect.Fill = fillBrush;
+            ApplyStrokeStyleWithStyle(rect, strokeStyle);
+        }
+        else if (_selectedShape is Ellipse ellipse)
+        {
+            ellipse.Stroke = strokeBrush;
+            ellipse.StrokeThickness = strokeThickness;
+            ellipse.Fill = fillBrush;
+            ApplyStrokeStyleWithStyle(ellipse, strokeStyle);
+        }
+        else if (_selectedShape is Polygon polygon)
+        {
+            polygon.Stroke = strokeBrush;
+            polygon.StrokeThickness = strokeThickness;
+            polygon.Fill = fillBrush;
+            ApplyStrokeStyleWithStyle(polygon, strokeStyle);
+        }
+
+        // Update selection border
+        UpdateSelectionBorder();
+    }
+
+    /// <summary>
+    /// Applies stroke style to a shape with a specific stroke style.
+    /// </summary>
+    private void ApplyStrokeStyleWithStyle(XamlShape shape, StrokeStyle? strokeStyle)
+    {
+        if (strokeStyle == null)
+        {
+            shape.StrokeDashArray = null;
+            return;
+        }
+
+        if (strokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dash)
+        {
+            shape.StrokeDashArray = new DoubleCollection { 2, 2 };
+        }
+        else if (strokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dot)
+        {
+            shape.StrokeDashArray = new DoubleCollection { 0, 2 };
+        }
+        else
+        {
+            shape.StrokeDashArray = null;
+        }
+    }
+
+    /// <summary>
+    /// Removes a shape from the canvas and clears selection if it's the selected shape.
+    /// </summary>
+    public void RemoveShape(XamlShape shape)
+    {
+        if (shape == null)
+            return;
+
+        // Remove from canvas
+        Children.Remove(shape);
+
+        // Remove from shape map
+        if (_shapeMap.ContainsKey(shape))
+        {
+            _shapeMap.Remove(shape);
+        }
+
+        // Clear selection if this is the selected shape
+        if (_selectedShape == shape)
+        {
+            ClearSelection();
+        }
+    }
+
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
     {
         var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
