@@ -290,10 +290,14 @@ public sealed partial class DrawingCanvas : Canvas
         ClearPreview();
         _isDrawing = false;
 
-        // Render final shape for Line type
+        // Render final shape based on type
         if (CurrentShapeType.Value == ShapeType.Line)
         {
             RenderFinalLine(startPoint, endPoint);
+        }
+        else if (CurrentShapeType.Value == ShapeType.Rectangle)
+        {
+            RenderFinalRectangle(startPoint, endPoint);
         }
 
         // Raise event with drawing data
@@ -326,6 +330,34 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness
         };
         Children.Add(line);
+    }
+
+    /// <summary>
+    /// Renders a final Rectangle shape on the canvas.
+    /// </summary>
+    private void RenderFinalRectangle(Point startPoint, Point endPoint)
+    {
+        var left = Math.Min(startPoint.X, endPoint.X);
+        var top = Math.Min(startPoint.Y, endPoint.Y);
+        var width = Math.Abs(endPoint.X - startPoint.X);
+        var height = Math.Abs(endPoint.Y - startPoint.Y);
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var rect = new Rectangle
+        {
+            Width = width,
+            Height = height,
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+        Canvas.SetLeft(rect, left);
+        Canvas.SetTop(rect, top);
+        Children.Add(rect);
     }
 
     private void ClearPreview()
