@@ -51,11 +51,11 @@ namespace whiteboard_app
 
         private void InitializeNavigation()
         {
-            if (App.ServiceProvider != null)
-            {
-                _navigationService = App.ServiceProvider.GetService<INavigationService>();
-                _navigationService?.SetNavigationFrame(ContentFrame);
-            }
+        if (App.ServiceProvider != null)
+        {
+            _navigationService = App.ServiceProvider.GetService(typeof(INavigationService)) as INavigationService;
+            _navigationService?.SetNavigationFrame(ContentFrame);
+        }
         }
 
         private void RootNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
