@@ -83,6 +83,17 @@ public partial class HomeViewModel : ObservableObject
         if (SelectedProfile == null || string.IsNullOrWhiteSpace(canvasData.Name))
             return;
 
+        // Validate canvas name length
+        if (canvasData.Name.Length > 200)
+            throw new ArgumentException("Canvas name must be 200 characters or less.");
+
+        // Validate dimensions
+        if (canvasData.Width < 100 || canvasData.Width > 10000)
+            throw new ArgumentException("Canvas width must be between 100 and 10000.");
+        
+        if (canvasData.Height < 100 || canvasData.Height > 10000)
+            throw new ArgumentException("Canvas height must be between 100 and 10000.");
+
         var newCanvas = new Canvas
         {
             Name = canvasData.Name.Trim(),
