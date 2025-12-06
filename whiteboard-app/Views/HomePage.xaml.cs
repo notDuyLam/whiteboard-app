@@ -44,7 +44,10 @@ public sealed partial class HomePage : Page
         if (e.PropertyName == nameof(ViewModel.SelectedProfile))
         {
             StartDrawingButton.IsEnabled = ViewModel.SelectedProfile != null;
-            ProfilesGridView.SelectedItem = ViewModel.SelectedProfile;
+            if (ViewModel.SelectedProfile != null)
+            {
+                ProfilesGridView.SelectedItem = ViewModel.SelectedProfile;
+            }
         }
     }
 
@@ -61,10 +64,9 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private async void CreateProfileButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private void ManageProfilesButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        // Will be implemented in Profile Management phase
-        await Task.CompletedTask;
+        _navigationService?.NavigateTo(typeof(Views.ProfilePage));
     }
 
     private async void StartDrawingButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

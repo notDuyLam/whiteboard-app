@@ -183,7 +183,18 @@ public sealed partial class ProfilePage : Page
                 ViewModel.NewProfileStrokeThickness = strokeThicknessSlider.Value;
                 ViewModel.NewProfileFillColor = fillColorTextBox.Text.Trim();
 
+                // Validate stroke color format
+                if (!string.IsNullOrWhiteSpace(ViewModel.NewProfileStrokeColor) && 
+                    !ViewModel.NewProfileStrokeColor.StartsWith("#") && 
+                    ViewModel.NewProfileStrokeColor != "Transparent")
+                {
+                    ViewModel.NewProfileStrokeColor = "#" + ViewModel.NewProfileStrokeColor;
+                }
+
                 await ViewModel.CreateProfileCommand.ExecuteAsync(null);
+                
+                // Refresh the list after creating profile
+                await ViewModel.LoadProfilesCommand.ExecuteAsync(null);
             }
             finally
             {

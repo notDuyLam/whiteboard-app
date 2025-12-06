@@ -51,11 +51,13 @@ namespace whiteboard_app
 
         private void InitializeNavigation()
         {
-        if (App.ServiceProvider != null)
-        {
-            _navigationService = App.ServiceProvider.GetService(typeof(INavigationService)) as INavigationService;
-            _navigationService?.SetNavigationFrame(ContentFrame);
-        }
+            if (App.ServiceProvider != null)
+            {
+                _navigationService = App.ServiceProvider.GetService(typeof(INavigationService)) as INavigationService;
+                _navigationService?.SetNavigationFrame(ContentFrame);
+                // Navigate to initial page
+                _navigationService?.NavigateTo(typeof(Views.HomePage));
+            }
         }
 
         private void RootNavigationView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
@@ -70,8 +72,18 @@ namespace whiteboard_app
         {
             if (args.InvokedItemContainer is NavigationViewItem item && item.Tag is string tag)
             {
-                // Navigation will be handled by ViewModels
-                // This is just the UI structure
+                switch (tag)
+                {
+                    case "Home":
+                        _navigationService?.NavigateTo(typeof(Views.HomePage));
+                        break;
+                    case "Drawing":
+                        // Will be implemented when DrawingPage is created
+                        break;
+                    case "Management":
+                        // Will be implemented when ManagementPage is created
+                        break;
+                }
             }
         }
 
