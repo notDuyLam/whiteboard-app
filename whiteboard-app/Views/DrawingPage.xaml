@@ -93,6 +93,44 @@
                             <TextBlock Text="Polygon" />
                         </StackPanel>
                     </Button>
+                    
+                    <!-- Stroke Configuration -->
+                    <TextBlock
+                        Text="Stroke Settings"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        FontWeight="SemiBold"
+                        Margin="0,12,0,0" />
+                    
+                    <!-- Stroke Style -->
+                    <ComboBox
+                        x:Name="StrokeStyleComboBox"
+                        Header="Stroke Style"
+                        SelectionChanged="StrokeStyleComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Solid" Tag="Solid" />
+                        <ComboBoxItem Content="Dash" Tag="Dash" />
+                        <ComboBoxItem Content="Dot" Tag="Dot" />
+                    </ComboBox>
+                    
+                    <!-- Stroke Color -->
+                    <TextBox
+                        x:Name="StrokeColorTextBox"
+                        Header="Stroke Color (Hex)"
+                        Text="#000000"
+                        TextChanged="StrokeColorTextBox_TextChanged" />
+                    
+                    <!-- Stroke Thickness -->
+                    <Slider
+                        x:Name="StrokeThicknessSlider"
+                        Header="Stroke Thickness"
+                        Minimum="1"
+                        Maximum="20"
+                        Value="2"
+                        TickFrequency="1"
+                        ValueChanged="StrokeThicknessSlider_ValueChanged" />
+                    <TextBlock
+                        x:Name="StrokeThicknessTextBlock"
+                        Text="2"
+                        HorizontalAlignment="Center" />
                 </StackPanel>
             </ScrollViewer>
         </Border>

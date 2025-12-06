@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 using whiteboard_app_data.Enums;
+using StrokeStyleEnum = whiteboard_app_data.Enums.StrokeStyle;
 
 namespace whiteboard_app.Views;
 
@@ -11,6 +12,44 @@ public sealed partial class DrawingPage : Page
     public DrawingPage()
     {
         InitializeComponent();
+        InitializeStrokeSettings();
+    }
+
+    private void InitializeStrokeSettings()
+    {
+        // Set default stroke style to Solid
+        StrokeStyleComboBox.SelectedIndex = 0;
+        
+        // Set default stroke color
+        StrokeColorTextBox.Text = "#000000";
+        
+        // Set default stroke thickness
+        StrokeThicknessSlider.Value = 2;
+        StrokeThicknessTextBlock.Text = "2";
+        
+        // Apply initial settings to canvas
+        ApplyStrokeSettings();
+    }
+
+    private void ApplyStrokeSettings()
+    {
+        // Apply stroke style
+        if (StrokeStyleComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string styleTag)
+        {
+            DrawingCanvasControl.StrokeStyle = styleTag switch
+            {
+                "Solid" => StrokeStyleEnum.Solid,
+                "Dash" => StrokeStyleEnum.Dash,
+                "Dot" => StrokeStyleEnum.Dot,
+                _ => StrokeStyleEnum.Solid
+            };
+        }
+        
+        // Apply stroke color
+        DrawingCanvasControl.StrokeColor = StrokeColorTextBox.Text;
+        
+        // Apply stroke thickness
+        DrawingCanvasControl.StrokeThickness = StrokeThicknessSlider.Value;
     }
 
     private void LineToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -91,6 +130,22 @@ public sealed partial class DrawingPage : Page
                 activeButton.Style = appStyle as Microsoft.UI.Xaml.Style;
             }
         }
+    }
+
+    private void StrokeStyleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ApplyStrokeSettings();
+    }
+
+    private void StrokeColorTextBox_TextChanged(object sender, Microsoft.UI.Xaml.Controls.TextChangedEventArgs e)
+    {
+        ApplyStrokeSettings();
+    }
+
+    private void StrokeThicknessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        StrokeThicknessTextBlock.Text = ((int)e.NewValue).ToString();
+        ApplyStrokeSettings();
     }
 }
 
