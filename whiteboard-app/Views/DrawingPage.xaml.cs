@@ -1,3 +1,4 @@
+using System;
 using Microsoft.UI.Xaml.Controls;
 using whiteboard_app_data.Enums;
 using StrokeStyleEnum = whiteboard_app_data.Enums.StrokeStyle;
@@ -13,6 +14,12 @@ public sealed partial class DrawingPage : Page
     {
         InitializeComponent();
         InitializeStrokeSettings();
+        
+        // Subscribe to shape selection events
+        if (DrawingCanvasControl != null)
+        {
+            DrawingCanvasControl.ShapeSelected += DrawingCanvasControl_ShapeSelected;
+        }
     }
 
     private void InitializeStrokeSettings()
@@ -170,6 +177,93 @@ public sealed partial class DrawingPage : Page
             StrokeThicknessTextBlock.Text = ((int)e.NewValue).ToString();
         }
         ApplyStrokeSettings();
+    }
+
+    private void SelectionModeToggle_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (SelectionModeToggle != null && DrawingCanvasControl != null)
+        {
+            DrawingCanvasControl.IsSelectionMode = SelectionModeToggle.IsOn;
+            
+            // Update tool buttons state
+            if (SelectionModeToggle.IsOn)
+            {
+                // Disable drawing tools when in selection mode
+                LineToolButton.IsEnabled = false;
+                RectangleToolButton.IsEnabled = false;
+                OvalToolButton.IsEnabled = false;
+                CircleToolButton.IsEnabled = false;
+                TriangleToolButton.IsEnabled = false;
+                PolygonToolButton.IsEnabled = false;
+            }
+            else
+            {
+                // Enable drawing tools when in drawing mode
+                LineToolButton.IsEnabled = true;
+                RectangleToolButton.IsEnabled = true;
+                OvalToolButton.IsEnabled = true;
+                CircleToolButton.IsEnabled = true;
+                TriangleToolButton.IsEnabled = true;
+                PolygonToolButton.IsEnabled = true;
+                
+                // Clear selection when switching back to drawing mode
+                UpdateEditButtonsState();
+            }
+        }
+    }
+
+    private void EditShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (DrawingCanvasControl?.SelectedShape == null)
+            return;
+
+        // Get selected shape properties and show edit dialog
+        // For now, just show a message - full editing will be implemented later
+        var dialog = new ContentDialog
+        {
+            Title = "Edit Shape",
+            Content = "Shape editing feature will be implemented in the next phase.",
+            CloseButtonText = "OK",
+            XamlRoot = this.XamlRoot
+        };
+        _ = dialog.ShowAsync();
+    }
+
+    private void DeleteShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (DrawingCanvasControl?.SelectedShape == null)
+            return;
+
+        // Remove the selected shape from canvas
+        var selectedShape = DrawingCanvasControl.SelectedShape;
+        DrawingCanvasControl.Children.Remove(selectedShape);
+        
+        // Clear selection
+        DrawingCanvasControl.IsSelectionMode = false;
+        SelectionModeToggle.IsOn = false;
+        
+        // Update button states
+        UpdateEditButtonsState();
+    }
+
+    private void UpdateEditButtonsState()
+    {
+        var hasSelection = DrawingCanvasControl?.SelectedShape != null;
+        
+        if (EditShapeButton != null)
+        {
+            EditShapeButton.IsEnabled = hasSelection;
+        }
+        
+        if (DeleteShapeButton != null)
+        {
+            DeleteShapeButton.IsEnabled = hasSelection;
+        }
+    }
+
+    private void DrawingCanvasControl_ShapeSelected(object? sender, EventArgs e)
+    {
+        UpdateEditButtonsState();
     }
 }
 
