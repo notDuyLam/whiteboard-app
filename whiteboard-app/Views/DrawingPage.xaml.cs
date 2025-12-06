@@ -53,6 +53,7 @@ public sealed partial class DrawingPage : Page
     {
         // Set Triangle as the current drawing tool
         DrawingCanvasControl.CurrentShapeType = ShapeType.Triangle;
+        System.Diagnostics.Debug.WriteLine($"TriangleToolButton_Click: Set CurrentShapeType to {DrawingCanvasControl.CurrentShapeType}");
         
         // Update button states (visual feedback)
         UpdateToolButtonStates(TriangleToolButton);

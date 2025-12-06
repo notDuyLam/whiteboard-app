@@ -94,7 +94,8 @@
             VerticalScrollBarVisibility="Auto">
             <controls:DrawingCanvas
                 x:Name="DrawingCanvasControl"
-                BackgroundColor="#FFFFFF" />
+                BackgroundColor="#FFFFFF"
+                IsHitTestVisible="True" />
         </ScrollViewer>
     </Grid>
 </Page>

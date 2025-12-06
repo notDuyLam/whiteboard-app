@@ -73,7 +73,30 @@ public sealed partial class DrawingCanvas : Canvas
             nameof(CurrentShapeType),
             typeof(ShapeType?),
             typeof(DrawingCanvas),
-            new PropertyMetadata(null));
+            new PropertyMetadata(null, OnCurrentShapeTypeChanged));
+
+    private static void OnCurrentShapeTypeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is DrawingCanvas canvas)
+        {
+            // Reset drawing state when tool changes
+            canvas.ResetDrawingState();
+        }
+    }
+
+    /// <summary>
+    /// Resets the drawing state when tool changes.
+    /// </summary>
+    private void ResetDrawingState()
+    {
+        if (_isDrawing)
+        {
+            ClearPreview();
+            _isDrawing = false;
+        }
+        _trianglePoints?.Clear();
+        _startPoint = new Point(0, 0);
+    }
 
     /// <summary>
     /// Gets or sets the stroke color for drawing.
@@ -239,9 +262,9 @@ public sealed partial class DrawingCanvas : Canvas
         // Handle Triangle: collect 3 points
         if (CurrentShapeType.Value == ShapeType.Triangle)
         {
-            if (!_isDrawing)
+            // Always start fresh when clicking (reset if needed)
+            if (_trianglePoints.Count == 0)
             {
-                _trianglePoints.Clear();
                 _isDrawing = true;
             }
             
@@ -254,11 +277,13 @@ public sealed partial class DrawingCanvas : Canvas
                 _isDrawing = false;
                 _trianglePoints.Clear();
             }
-            else
+            else if (_trianglePoints.Count >= 2)
             {
-                // Update preview with current points
+                // Update preview with current points (show line between first 2 points)
                 UpdateTrianglePreview();
             }
+            // For first point, no preview needed - user can see the click
+            e.Handled = true;
             return;
         }
         
@@ -334,6 +359,11 @@ public sealed partial class DrawingCanvas : Canvas
     {
         if (_isDrawing)
         {
+            // For Triangle, reset points collection
+            if (CurrentShapeType == ShapeType.Triangle)
+            {
+                _trianglePoints.Clear();
+            }
             ClearPreview();
             _isDrawing = false;
             ReleasePointerCapture(e.Pointer);
@@ -507,26 +537,46 @@ public sealed partial class DrawingCanvas : Canvas
             return;
 
         var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
-        var fillBrush = FillColor == "Transparent"
-            ? null
-            : new SolidColorBrush(ParseHexColor(FillColor));
 
-        var polygon = new Polygon
+        // If we have 2 points, show a line preview
+        if (_trianglePoints.Count == 2)
         {
-            Stroke = strokeBrush,
-            StrokeThickness = StrokeThickness,
-            Fill = fillBrush
-        };
-
-        var points = new PointCollection();
-        foreach (var pt in _trianglePoints)
-        {
-            points.Add(pt);
+            var line = new Line
+            {
+                X1 = _trianglePoints[0].X,
+                Y1 = _trianglePoints[0].Y,
+                X2 = _trianglePoints[1].X,
+                Y2 = _trianglePoints[1].Y,
+                Stroke = strokeBrush,
+                StrokeThickness = StrokeThickness
+            };
+            _previewShape = line;
+            Children.Add(_previewShape);
         }
-        polygon.Points = points;
+        // If we have 3 points, show full triangle preview (though this shouldn't happen as we finish immediately)
+        else if (_trianglePoints.Count == 3)
+        {
+            var fillBrush = FillColor == "Transparent"
+                ? null
+                : new SolidColorBrush(ParseHexColor(FillColor));
 
-        _previewShape = polygon;
-        Children.Add(_previewShape);
+            var polygon = new Polygon
+            {
+                Stroke = strokeBrush,
+                StrokeThickness = StrokeThickness,
+                Fill = fillBrush
+            };
+
+            var points = new PointCollection();
+            foreach (var pt in _trianglePoints)
+            {
+                points.Add(pt);
+            }
+            polygon.Points = points;
+
+            _previewShape = polygon;
+            Children.Add(_previewShape);
+        }
     }
 
     /// <summary>
@@ -534,8 +584,13 @@ public sealed partial class DrawingCanvas : Canvas
     /// </summary>
     private void FinishTriangleDrawing()
     {
+        System.Diagnostics.Debug.WriteLine($"FinishTriangleDrawing: _trianglePoints.Count = {_trianglePoints.Count}");
+        
         if (_trianglePoints.Count != 3)
+        {
+            System.Diagnostics.Debug.WriteLine("FinishTriangleDrawing: Not 3 points, returning");
             return;
+        }
 
         ClearPreview();
 
