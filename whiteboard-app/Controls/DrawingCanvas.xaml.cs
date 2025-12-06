@@ -645,6 +645,17 @@ public sealed partial class DrawingCanvas : XamlCanvas
         XamlCanvas.SetLeft(ellipse, left);
         XamlCanvas.SetTop(ellipse, top);
         Children.Add(ellipse);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Oval,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[ellipse] = shapeEntity;
     }
 
     /// <summary>
@@ -807,6 +818,17 @@ public sealed partial class DrawingCanvas : XamlCanvas
         polygon.Points = points;
 
         Children.Add(polygon);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Polygon,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[polygon] = shapeEntity;
 
         // Raise event with drawing data
         var args = new ShapeDrawingCompletedEventArgs
