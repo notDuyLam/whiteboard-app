@@ -245,7 +245,25 @@ public sealed partial class DrawingCanvas : Canvas
             return;
 
         var point = e.GetCurrentPoint(this);
-        UpdatePreview(_startPoint, point.Position);
+        var currentPoint = point.Position;
+        
+        // For Circle, always constrain to perfect circle (calculate radius from distance)
+        if (CurrentShapeType.Value == ShapeType.Circle)
+        {
+            var deltaX = currentPoint.X - _startPoint.X;
+            var deltaY = currentPoint.Y - _startPoint.Y;
+            var radius = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+            // Keep the angle but use calculated radius
+            if (radius > 0)
+            {
+                var angle = Math.Atan2(deltaY, deltaX);
+                currentPoint = new Point(
+                    _startPoint.X + radius * Math.Cos(angle),
+                    _startPoint.Y + radius * Math.Sin(angle));
+            }
+        }
+        
+        UpdatePreview(_startPoint, currentPoint);
     }
 
     private void DrawingCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -254,7 +272,25 @@ public sealed partial class DrawingCanvas : Canvas
             return;
 
         var point = e.GetCurrentPoint(this);
-        FinishDrawing(_startPoint, point.Position);
+        var endPoint = point.Position;
+        
+        // For Circle, always constrain to perfect circle (calculate radius from distance)
+        if (CurrentShapeType == ShapeType.Circle)
+        {
+            var deltaX = endPoint.X - _startPoint.X;
+            var deltaY = endPoint.Y - _startPoint.Y;
+            var radius = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+            // Keep the angle but use calculated radius
+            if (radius > 0)
+            {
+                var angle = Math.Atan2(deltaY, deltaX);
+                endPoint = new Point(
+                    _startPoint.X + radius * Math.Cos(angle),
+                    _startPoint.Y + radius * Math.Sin(angle));
+            }
+        }
+        
+        FinishDrawing(_startPoint, endPoint);
         ReleasePointerCapture(e.Pointer);
     }
 
@@ -302,6 +338,10 @@ public sealed partial class DrawingCanvas : Canvas
         else if (CurrentShapeType.Value == ShapeType.Oval)
         {
             RenderFinalOval(startPoint, endPoint);
+        }
+        else if (CurrentShapeType.Value == ShapeType.Circle)
+        {
+            RenderFinalCircle(startPoint, endPoint);
         }
 
         // Raise event with drawing data
@@ -389,6 +429,34 @@ public sealed partial class DrawingCanvas : Canvas
         };
         Canvas.SetLeft(ellipse, left);
         Canvas.SetTop(ellipse, top);
+        Children.Add(ellipse);
+    }
+
+    /// <summary>
+    /// Renders a final Circle shape on the canvas.
+    /// </summary>
+    private void RenderFinalCircle(Point startPoint, Point endPoint)
+    {
+        var deltaX = endPoint.X - startPoint.X;
+        var deltaY = endPoint.Y - startPoint.Y;
+        var radius = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+        var diameter = radius * 2;
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var ellipse = new Ellipse
+        {
+            Width = diameter,
+            Height = diameter,
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+        Canvas.SetLeft(ellipse, startPoint.X - radius);
+        Canvas.SetTop(ellipse, startPoint.Y - radius);
         Children.Add(ellipse);
     }
 
