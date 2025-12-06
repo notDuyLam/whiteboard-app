@@ -290,6 +290,12 @@ public sealed partial class DrawingCanvas : Canvas
         ClearPreview();
         _isDrawing = false;
 
+        // Render final shape for Line type
+        if (CurrentShapeType.Value == ShapeType.Line)
+        {
+            RenderFinalLine(startPoint, endPoint);
+        }
+
         // Raise event with drawing data
         var args = new ShapeDrawingCompletedEventArgs
         {
@@ -302,6 +308,24 @@ public sealed partial class DrawingCanvas : Canvas
         };
 
         ShapeDrawingCompleted?.Invoke(this, args);
+    }
+
+    /// <summary>
+    /// Renders a final Line shape on the canvas.
+    /// </summary>
+    private void RenderFinalLine(Point startPoint, Point endPoint)
+    {
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var line = new Line
+        {
+            X1 = startPoint.X,
+            Y1 = startPoint.Y,
+            X2 = endPoint.X,
+            Y2 = endPoint.Y,
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness
+        };
+        Children.Add(line);
     }
 
     private void ClearPreview()
