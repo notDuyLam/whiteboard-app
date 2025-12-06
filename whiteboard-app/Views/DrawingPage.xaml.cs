@@ -939,6 +939,23 @@ public sealed partial class DrawingPage : Page
         if (_dataService == null)
             return;
 
+        // Show confirmation dialog
+        var confirmDialog = new ContentDialog
+        {
+            Title = "Delete Template",
+            Content = $"Are you sure you want to delete template '{template.TemplateName}'? This action cannot be undone.",
+            PrimaryButtonText = "Delete",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Secondary,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await confirmDialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+        {
+            return; // User cancelled
+        }
+
         try
         {
             bool deleted = await _dataService.DeleteShapeAsync(template.Id);
