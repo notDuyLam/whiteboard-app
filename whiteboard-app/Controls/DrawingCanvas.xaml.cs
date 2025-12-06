@@ -299,6 +299,10 @@ public sealed partial class DrawingCanvas : Canvas
         {
             RenderFinalRectangle(startPoint, endPoint);
         }
+        else if (CurrentShapeType.Value == ShapeType.Oval)
+        {
+            RenderFinalOval(startPoint, endPoint);
+        }
 
         // Raise event with drawing data
         var args = new ShapeDrawingCompletedEventArgs
@@ -358,6 +362,34 @@ public sealed partial class DrawingCanvas : Canvas
         Canvas.SetLeft(rect, left);
         Canvas.SetTop(rect, top);
         Children.Add(rect);
+    }
+
+    /// <summary>
+    /// Renders a final Oval shape on the canvas.
+    /// </summary>
+    private void RenderFinalOval(Point startPoint, Point endPoint)
+    {
+        var left = Math.Min(startPoint.X, endPoint.X);
+        var top = Math.Min(startPoint.Y, endPoint.Y);
+        var width = Math.Abs(endPoint.X - startPoint.X);
+        var height = Math.Abs(endPoint.Y - startPoint.Y);
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var ellipse = new Ellipse
+        {
+            Width = width,
+            Height = height,
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+        Canvas.SetLeft(ellipse, left);
+        Canvas.SetTop(ellipse, top);
+        Children.Add(ellipse);
     }
 
     private void ClearPreview()
