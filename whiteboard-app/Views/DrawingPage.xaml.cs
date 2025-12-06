@@ -31,11 +31,21 @@ public sealed partial class DrawingPage : Page
         UpdateToolButtonStates(RectangleToolButton);
     }
 
+    private void OvalToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Oval as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Oval;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(OvalToolButton);
+    }
+
     private void UpdateToolButtonStates(Button? activeButton)
     {
         // Reset all tool buttons
         LineToolButton.Style = null;
         RectangleToolButton.Style = null;
+        OvalToolButton.Style = null;
         
         // Set active button style
         if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))
