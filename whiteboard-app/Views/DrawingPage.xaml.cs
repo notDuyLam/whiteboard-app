@@ -40,12 +40,22 @@ public sealed partial class DrawingPage : Page
         UpdateToolButtonStates(OvalToolButton);
     }
 
+    private void CircleToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Circle as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Circle;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(CircleToolButton);
+    }
+
     private void UpdateToolButtonStates(Button? activeButton)
     {
         // Reset all tool buttons
         LineToolButton.Style = null;
         RectangleToolButton.Style = null;
         OvalToolButton.Style = null;
+        CircleToolButton.Style = null;
         
         // Set active button style
         if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))
