@@ -820,5 +820,141 @@ public sealed partial class DrawingPage : Page
             ShowSaveNotification("Shape saved as template successfully");
         }
     }
+
+    /// <summary>
+    /// Handles the Manage Templates button click event.
+    /// </summary>
+    private async void ManageTemplatesButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_dataService == null)
+        {
+            ShowSaveNotification("Data service not available", isError: true);
+            return;
+        }
+
+        try
+        {
+            // Load all templates
+            var templates = await _dataService.GetAllTemplatesAsync();
+
+            // Show dialog with template list
+            var dialog = new ContentDialog
+            {
+                Title = "Manage Templates",
+                CloseButtonText = "Close",
+                XamlRoot = XamlRoot,
+                MaxWidth = 600
+            };
+
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 400
+            };
+
+            var stackPanel = new StackPanel { Spacing = 12 };
+
+            if (templates.Count == 0)
+            {
+                var noTemplatesText = new TextBlock
+                {
+                    Text = "No templates available.",
+                    HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Center,
+                    Margin = new Microsoft.UI.Xaml.Thickness(0, 20, 0, 20)
+                };
+                stackPanel.Children.Add(noTemplatesText);
+            }
+            else
+            {
+                foreach (var template in templates)
+                {
+                    var templateBorder = new Border
+                    {
+                        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                        BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                        BorderThickness = new Microsoft.UI.Xaml.Thickness(1),
+                        CornerRadius = new Microsoft.UI.Xaml.CornerRadius(4),
+                        Padding = new Microsoft.UI.Xaml.Thickness(12),
+                        Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 8)
+                    };
+
+                    var templatePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+                    
+                    var templateInfo = new StackPanel { VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center };
+                    var templateNameText = new TextBlock
+                    {
+                        Text = template.TemplateName ?? "Unnamed Template",
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        FontSize = 14
+                    };
+                    var templateTypeText = new TextBlock
+                    {
+                        Text = $"Type: {template.ShapeType}",
+                        FontSize = 12,
+                        Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                        Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
+                    };
+                    templateInfo.Children.Add(templateNameText);
+                    templateInfo.Children.Add(templateTypeText);
+                    templatePanel.Children.Add(templateInfo);
+
+                    var deleteButton = new Button
+                    {
+                        Content = "Delete",
+                        Tag = template,
+                        HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Right,
+                        VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center
+                    };
+                    deleteButton.Click += async (s, args) =>
+                    {
+                        if (s is Button btn && btn.Tag is Shape templateToDelete)
+                        {
+                            await DeleteTemplateAsync(templateToDelete);
+                            // Refresh template list
+                            ManageTemplatesButton_Click(sender, e);
+                        }
+                    };
+                    templatePanel.Children.Add(deleteButton);
+
+                    templateBorder.Child = templatePanel;
+                    stackPanel.Children.Add(templateBorder);
+                }
+            }
+
+            scrollViewer.Content = stackPanel;
+            dialog.Content = scrollViewer;
+
+            await dialog.ShowAsync();
+        }
+        catch (Exception)
+        {
+            ShowSaveNotification("Failed to load templates", isError: true);
+        }
+    }
+
+    /// <summary>
+    /// Deletes a template from the database.
+    /// </summary>
+    private async Task DeleteTemplateAsync(Shape template)
+    {
+        if (_dataService == null)
+            return;
+
+        try
+        {
+            bool deleted = await _dataService.DeleteShapeAsync(template.Id);
+            if (deleted)
+            {
+                ShowSaveNotification($"Template '{template.TemplateName}' deleted successfully");
+            }
+            else
+            {
+                ShowSaveNotification("Failed to delete template", isError: true);
+            }
+        }
+        catch (Exception)
+        {
+            ShowSaveNotification("Failed to delete template", isError: true);
+        }
+    }
 }
 
