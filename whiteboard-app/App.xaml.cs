@@ -75,6 +75,7 @@ namespace whiteboard_app
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IThemeService, ThemeService>();
             services.AddScoped<IDataService, DataService>();
+            services.AddSingleton<IDrawingService, DrawingService>();
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
