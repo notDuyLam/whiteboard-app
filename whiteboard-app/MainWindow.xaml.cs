@@ -78,9 +78,7 @@ namespace whiteboard_app
                         _navigationService?.NavigateTo(typeof(Views.HomePage));
                         break;
                     case "Drawing":
-                        // For now, navigate to HomePage since DrawingPage will be created later
-                        // User can select a profile and canvas to start drawing
-                        _navigationService?.NavigateTo(typeof(Views.HomePage));
+                        _navigationService?.NavigateTo(typeof(Views.DrawingPage));
                         break;
                     case "Management":
                         _navigationService?.NavigateTo(typeof(Views.ProfilePage));
