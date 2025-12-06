@@ -38,6 +38,9 @@ public sealed partial class ProfilePage : Page
         if (e.PropertyName == nameof(ViewModel.Profiles))
         {
             ProfilesGridView.ItemsSource = ViewModel.Profiles;
+            // Ensure grid is visible after loading
+            ProfilesGridView.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            LoadingProgressRing.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
         }
     }
 
@@ -192,9 +195,6 @@ public sealed partial class ProfilePage : Page
                 }
 
                 await ViewModel.CreateProfileCommand.ExecuteAsync(null);
-                
-                // Refresh the list after creating profile
-                await ViewModel.LoadProfilesCommand.ExecuteAsync(null);
             }
             finally
             {
@@ -367,9 +367,6 @@ public sealed partial class ProfilePage : Page
                 }
 
                 await ViewModel.UpdateProfileCommand.ExecuteAsync(null);
-                
-                // Refresh the list after updating profile
-                await ViewModel.LoadProfilesCommand.ExecuteAsync(null);
             }
             finally
             {

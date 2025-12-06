@@ -81,7 +81,7 @@ namespace whiteboard_app
                         // Will be implemented when DrawingPage is created
                         break;
                     case "Management":
-                        // Will be implemented when ManagementPage is created
+                        _navigationService?.NavigateTo(typeof(Views.ProfilePage));
                         break;
                 }
             }

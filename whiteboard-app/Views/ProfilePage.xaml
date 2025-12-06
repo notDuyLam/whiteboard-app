@@ -38,13 +38,15 @@
                     x:Name="LoadingProgressRing"
                     Height="40"
                     Width="40"
-                    HorizontalAlignment="Center" />
+                    HorizontalAlignment="Center"
+                    Visibility="Collapsed" />
 
                 <GridView
                     x:Name="ProfilesGridView"
                     SelectionMode="Single"
                     IsItemClickEnabled="True"
-                    ItemClick="ProfilesGridView_ItemClick">
+                    ItemClick="ProfilesGridView_ItemClick"
+                    Visibility="Visible">
                     <GridView.ItemTemplate>
                         <DataTemplate>
                             <Border

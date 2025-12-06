@@ -148,6 +148,12 @@ public partial class ProfileViewModel : ObservableObject
             await LoadProfilesAsync();
             CloseCreateDialog();
         }
+        catch (Exception)
+        {
+            // Error handling - profile creation failed
+            // In a real app, we would show an error message to the user
+            throw;
+        }
         catch
         {
             // Error handling - profile creation failed
@@ -213,10 +219,11 @@ public partial class ProfileViewModel : ObservableObject
             await LoadProfilesAsync();
             CloseEditDialog();
         }
-        catch
+        catch (Exception)
         {
             // Error handling - profile update failed
             // In a real app, we would show an error message to the user
+            throw;
         }
     }
 
