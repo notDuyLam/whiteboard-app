@@ -53,10 +53,18 @@ public sealed partial class DrawingPage : Page
     {
         // Set Triangle as the current drawing tool
         DrawingCanvasControl.CurrentShapeType = ShapeType.Triangle;
-        System.Diagnostics.Debug.WriteLine($"TriangleToolButton_Click: Set CurrentShapeType to {DrawingCanvasControl.CurrentShapeType}");
         
         // Update button states (visual feedback)
         UpdateToolButtonStates(TriangleToolButton);
+    }
+
+    private void PolygonToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Polygon as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Polygon;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(PolygonToolButton);
     }
 
     private void UpdateToolButtonStates(Button? activeButton)
@@ -67,6 +75,7 @@ public sealed partial class DrawingPage : Page
         OvalToolButton.Style = null;
         CircleToolButton.Style = null;
         TriangleToolButton.Style = null;
+        PolygonToolButton.Style = null;
         
         // Set active button style
         if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))
