@@ -13,6 +13,17 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
+        
+        <!-- Save Notification InfoBar -->
+        <InfoBar
+            x:Name="SaveNotificationInfoBar"
+            Grid.ColumnSpan="2"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,0"
+            IsOpen="False"
+            Title="Save Status"
+            Severity="Success" />
 
         <!-- Drawing Tools Panel -->
         <Border

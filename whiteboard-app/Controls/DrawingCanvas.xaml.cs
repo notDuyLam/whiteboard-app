@@ -892,7 +892,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             EndPoint = _polygonPoints[_polygonPoints.Count - 1],
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            PolygonPoints = new List<Point>(_polygonPoints)
         };
 
         ShapeDrawingCompleted?.Invoke(this, args);
@@ -1538,5 +1539,7 @@ public class ShapeDrawingCompletedEventArgs : EventArgs
     public string StrokeColor { get; set; } = "#000000";
     public double StrokeThickness { get; set; } = 2.0;
     public string FillColor { get; set; } = "Transparent";
+    public List<Point>? TrianglePoints { get; set; }
+    public List<Point>? PolygonPoints { get; set; }
 }
 

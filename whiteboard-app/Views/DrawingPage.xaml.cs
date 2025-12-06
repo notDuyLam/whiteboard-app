@@ -472,6 +472,23 @@ public sealed partial class DrawingPage : Page
                     CenterY = args.StartPoint.Y,
                     Radius = Math.Sqrt(Math.Pow(args.EndPoint.X - args.StartPoint.X, 2) + Math.Pow(args.EndPoint.Y - args.StartPoint.Y, 2))
                 }),
+                ShapeType.Triangle => args.TrianglePoints != null && args.TrianglePoints.Count == 3
+                    ? _drawingService.SerializeShapeData(new TriangleShapeData
+                    {
+                        Point1X = args.TrianglePoints[0].X,
+                        Point1Y = args.TrianglePoints[0].Y,
+                        Point2X = args.TrianglePoints[1].X,
+                        Point2Y = args.TrianglePoints[1].Y,
+                        Point3X = args.TrianglePoints[2].X,
+                        Point3Y = args.TrianglePoints[2].Y
+                    })
+                    : string.Empty,
+                ShapeType.Polygon => args.PolygonPoints != null && args.PolygonPoints.Count >= 3
+                    ? _drawingService.SerializeShapeData(new PolygonShapeData
+                    {
+                        Points = args.PolygonPoints.Select(p => new PointData { X = p.X, Y = p.Y }).ToList()
+                    })
+                    : string.Empty,
                 _ => string.Empty
             };
 
@@ -488,11 +505,43 @@ public sealed partial class DrawingPage : Page
             );
 
             await _dataService.CreateShapeAsync(shape);
+            
+            // Update canvas last modified date
+            if (_currentCanvas != null)
+            {
+                _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+                await _dataService.UpdateCanvasAsync(_currentCanvas);
+            }
+            
+            // Show save notification
+            ShowSaveNotification("Shape saved successfully");
         }
         catch (Exception)
         {
             // Error handling - shape save failed
-            // Could show error dialog here
+            ShowSaveNotification("Failed to save shape", isError: true);
+        }
+    }
+
+    /// <summary>
+    /// Shows a save notification to the user.
+    /// </summary>
+    private async void ShowSaveNotification(string message, bool isError = false)
+    {
+        if (SaveNotificationInfoBar == null)
+            return;
+
+        SaveNotificationInfoBar.Message = message;
+        SaveNotificationInfoBar.Severity = isError 
+            ? InfoBarSeverity.Error 
+            : InfoBarSeverity.Success;
+        SaveNotificationInfoBar.IsOpen = true;
+
+        // Auto-hide after 3 seconds
+        await Task.Delay(3000);
+        if (SaveNotificationInfoBar != null)
+        {
+            SaveNotificationInfoBar.IsOpen = false;
         }
     }
 }
