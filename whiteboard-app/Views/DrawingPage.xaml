@@ -131,6 +131,34 @@
                         x:Name="StrokeThicknessTextBlock"
                         Text="2"
                         HorizontalAlignment="Center" />
+                    
+                    <!-- Selection Mode -->
+                    <TextBlock
+                        Text="Selection and Editing"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        FontWeight="SemiBold"
+                        Margin="0,12,0,0" />
+                    
+                    <ToggleSwitch
+                        x:Name="SelectionModeToggle"
+                        Header="Selection Mode"
+                        Toggled="SelectionModeToggle_Toggled" />
+                    
+                    <!-- Edit Selected Shape -->
+                    <Button
+                        x:Name="EditShapeButton"
+                        Content="Edit Selected Shape"
+                        Click="EditShapeButton_Click"
+                        IsEnabled="False"
+                        HorizontalAlignment="Stretch" />
+                    
+                    <!-- Delete Selected Shape -->
+                    <Button
+                        x:Name="DeleteShapeButton"
+                        Content="Delete Selected Shape"
+                        Click="DeleteShapeButton_Click"
+                        IsEnabled="False"
+                        HorizontalAlignment="Stretch" />
                 </StackPanel>
             </ScrollViewer>
         </Border>

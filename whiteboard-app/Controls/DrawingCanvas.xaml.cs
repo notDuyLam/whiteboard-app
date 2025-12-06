@@ -185,6 +185,11 @@ public sealed partial class DrawingCanvas : XamlCanvas
     /// </summary>
     public event EventHandler<ShapeDrawingCompletedEventArgs>? ShapeDrawingCompleted;
 
+    /// <summary>
+    /// Event raised when a shape is selected.
+    /// </summary>
+    public event EventHandler? ShapeSelected;
+
     private XamlShape? _previewShape;
     private Point _startPoint;
     private bool _isDrawing;
@@ -1018,6 +1023,9 @@ public sealed partial class DrawingCanvas : XamlCanvas
         _selectionBorder.Height = bounds.Height + 4;
         
         Children.Add(_selectionBorder);
+        
+        // Raise selection event
+        ShapeSelected?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -1031,6 +1039,9 @@ public sealed partial class DrawingCanvas : XamlCanvas
             _selectionBorder = null;
         }
         _selectedShape = null;
+        
+        // Raise selection event (shape deselected)
+        ShapeSelected?.Invoke(this, EventArgs.Empty);
     }
 
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
