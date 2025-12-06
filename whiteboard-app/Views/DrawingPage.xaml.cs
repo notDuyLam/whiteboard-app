@@ -774,7 +774,17 @@ public sealed partial class DrawingPage : Page
                     return;
                 }
 
+                // Validate serialized data is not empty
+                if (string.IsNullOrWhiteSpace(selectedShapeModel.SerializedData))
+                {
+                    errorTextBlock.Text = "Selected shape has invalid data and cannot be saved as template.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+
                 // Create template shape (copy of selected shape)
+                // Template shapes have CanvasId = null and IsTemplate = true
                 var templateShape = _drawingService.CreateShape(
                     selectedShapeModel.ShapeType,
                     null, // CanvasId is null for templates
@@ -784,8 +794,10 @@ public sealed partial class DrawingPage : Page
                     selectedShapeModel.SerializedData
                 );
 
+                // Set template properties
                 templateShape.IsTemplate = true;
-                templateShape.TemplateName = templateName;
+                templateShape.TemplateName = templateName.Trim();
+                templateShape.CanvasId = null; // Templates are not associated with any canvas
 
                 // Save template to database
                 await _dataService.CreateShapeAsync(templateShape);
