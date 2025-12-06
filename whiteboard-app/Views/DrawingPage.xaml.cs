@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using whiteboard_app.Controls;
 using whiteboard_app.Services;
 using whiteboard_app_data.Enums;
@@ -36,6 +37,60 @@ public sealed partial class DrawingPage : Page
         {
             DrawingCanvasControl.ShapeSelected += DrawingCanvasControl_ShapeSelected;
             DrawingCanvasControl.ShapeDrawingCompleted += DrawingCanvasControl_ShapeDrawingCompleted;
+        }
+    }
+
+    /// <summary>
+    /// Called when the page is navigated to.
+    /// </summary>
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        
+        // If a canvas parameter is passed, load it
+        if (e.Parameter != null)
+        {
+            if (e.Parameter is CanvasModel canvas)
+            {
+                SetCanvas(canvas);
+                await LoadCanvasShapesAsync(canvas);
+            }
+            else if (e.Parameter is Guid canvasId && _dataService != null)
+            {
+                var loadedCanvas = await _dataService.GetCanvasByIdAsync(canvasId);
+                if (loadedCanvas != null)
+                {
+                    SetCanvas(loadedCanvas);
+                    await LoadCanvasShapesAsync(loadedCanvas);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Loads shapes from the database for the given canvas and renders them.
+    /// </summary>
+    private async Task LoadCanvasShapesAsync(CanvasModel canvas)
+    {
+        if (_dataService == null || _drawingService == null || DrawingCanvasControl == null)
+            return;
+
+        try
+        {
+            // Load shapes from database
+            var shapes = await _dataService.GetShapesByCanvasIdAsync(canvas.Id);
+            
+            // Clear existing shapes first
+            DrawingCanvasControl.ClearAllShapes();
+            
+            // TODO: Render each shape from database
+            // This will be implemented when we add the RenderShapeFromModel method to DrawingCanvas
+            // For now, shapes will be loaded when the canvas is set, but not rendered
+            // The full implementation will be in Phase 23 (Load Canvas functionality)
+        }
+        catch (Exception)
+        {
+            // Error loading shapes - silently fail for now
         }
     }
 
@@ -401,6 +456,11 @@ public sealed partial class DrawingPage : Page
         {
             DeleteShapeButton.IsEnabled = hasSelection;
         }
+        
+        if (SaveAsTemplateButton != null)
+        {
+            SaveAsTemplateButton.IsEnabled = hasSelection;
+        }
     }
 
     private void DrawingCanvasControl_ShapeSelected(object? sender, EventArgs e)
@@ -628,6 +688,124 @@ public sealed partial class DrawingPage : Page
         catch (Exception)
         {
             ShowSaveNotification("Failed to delete canvas", isError: true);
+        }
+    }
+
+    /// <summary>
+    /// Handles the Save as Template button click event.
+    /// </summary>
+    private async void SaveAsTemplateButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (DrawingCanvasControl == null || _dataService == null || _drawingService == null)
+        {
+            ShowSaveNotification("No shape selected", isError: true);
+            return;
+        }
+
+        var selectedShapeModel = DrawingCanvasControl.GetSelectedShapeModel();
+        if (selectedShapeModel == null)
+        {
+            ShowSaveNotification("No shape selected", isError: true);
+            return;
+        }
+
+        // Show dialog to enter template name
+        var dialog = new ContentDialog
+        {
+            Title = "Save Shape as Template",
+            PrimaryButtonText = "Save",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot
+        };
+
+        var stackPanel = new StackPanel { Spacing = 16 };
+        
+        var templateNameTextBox = new TextBox
+        {
+            Header = "Template Name *",
+            PlaceholderText = "Enter template name",
+            MaxLength = 200
+        };
+        stackPanel.Children.Add(templateNameTextBox);
+
+        var errorTextBlock = new TextBlock
+        {
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red),
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+            Visibility = Microsoft.UI.Xaml.Visibility.Collapsed
+        };
+        stackPanel.Children.Add(errorTextBlock);
+
+        dialog.Content = stackPanel;
+
+        dialog.PrimaryButtonClick += async (s, args) =>
+        {
+            var deferral = args.GetDeferral();
+            try
+            {
+                errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                errorTextBlock.Text = string.Empty;
+
+                var templateName = templateNameTextBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(templateName))
+                {
+                    errorTextBlock.Text = "Template name is required.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+
+                if (templateName.Length > 200)
+                {
+                    errorTextBlock.Text = "Template name must be 200 characters or less.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+
+                // Check if template name already exists
+                var existingTemplates = await _dataService.GetAllTemplatesAsync();
+                if (existingTemplates.Any(t => t.TemplateName == templateName))
+                {
+                    errorTextBlock.Text = "A template with this name already exists.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+
+                // Create template shape (copy of selected shape)
+                var templateShape = _drawingService.CreateShape(
+                    selectedShapeModel.ShapeType,
+                    null, // CanvasId is null for templates
+                    selectedShapeModel.StrokeColor,
+                    selectedShapeModel.StrokeThickness,
+                    selectedShapeModel.FillColor,
+                    selectedShapeModel.SerializedData
+                );
+
+                templateShape.IsTemplate = true;
+                templateShape.TemplateName = templateName;
+
+                // Save template to database
+                await _dataService.CreateShapeAsync(templateShape);
+            }
+            catch (Exception ex)
+            {
+                errorTextBlock.Text = $"Failed to save template: {ex.Message}";
+                errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                args.Cancel = true;
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            ShowSaveNotification("Shape saved as template successfully");
         }
     }
 }

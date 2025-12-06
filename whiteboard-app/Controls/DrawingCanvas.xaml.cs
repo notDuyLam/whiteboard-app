@@ -1270,6 +1270,17 @@ public sealed partial class DrawingCanvas : XamlCanvas
     }
 
     /// <summary>
+    /// Gets the shape model for the currently selected shape.
+    /// </summary>
+    public ShapeModel? GetSelectedShapeModel()
+    {
+        if (_selectedShape == null || !_shapeMap.ContainsKey(_selectedShape))
+            return null;
+        
+        return _shapeMap[_selectedShape];
+    }
+
+    /// <summary>
     /// Gets the properties of the selected shape.
     /// </summary>
     public (string StrokeColor, double StrokeThickness, string FillColor, StrokeStyle? StrokeStyle) GetSelectedShapeProperties()

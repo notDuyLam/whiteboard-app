@@ -265,21 +265,11 @@ public sealed partial class HomePage : Page
 
         var result = await dialog.ShowAsync();
         
-        // If dialog was closed with Primary button (Create), show success message
-        if (result == ContentDialogResult.Primary)
+        // If dialog was closed with Primary button (Create), navigate to DrawingPage with the canvas
+        if (result == ContentDialogResult.Primary && ViewModel.CreatedCanvas != null)
         {
-            var canvasName = canvasNameTextBox.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(canvasName))
-            {
-                var successDialog = new ContentDialog
-                {
-                    Title = "Success",
-                    Content = $"Canvas '{canvasName}' has been created successfully!",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await successDialog.ShowAsync();
-            }
+            // Navigate to DrawingPage with the created canvas
+            _navigationService?.NavigateTo(typeof(Views.DrawingPage), ViewModel.CreatedCanvas);
         }
     }
 }

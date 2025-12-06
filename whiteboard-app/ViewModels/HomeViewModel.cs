@@ -80,6 +80,9 @@ public partial class HomeViewModel : ObservableObject
         return await _dataService.GetProfileByIdAsync(profileId);
     }
 
+    [ObservableProperty]
+    private Canvas? createdCanvas;
+
     [RelayCommand]
     private async Task CreateCanvasAsync((string Name, int Width, int Height, string BackgroundColor) canvasData)
     {
@@ -108,7 +111,7 @@ public partial class HomeViewModel : ObservableObject
 
         try
         {
-            await _dataService.CreateCanvasAsync(newCanvas);
+            CreatedCanvas = await _dataService.CreateCanvasAsync(newCanvas);
             // Canvas created successfully
         }
         catch (Exception)

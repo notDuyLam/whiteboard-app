@@ -179,6 +179,15 @@
                         IsEnabled="False"
                         HorizontalAlignment="Stretch" />
                     
+                    <!-- Save as Template -->
+                    <Button
+                        x:Name="SaveAsTemplateButton"
+                        Content="Save as Template"
+                        Click="SaveAsTemplateButton_Click"
+                        IsEnabled="False"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,8,0,0" />
+                    
                     <!-- Canvas Actions -->
                     <TextBlock
                         Text="Canvas Actions"
