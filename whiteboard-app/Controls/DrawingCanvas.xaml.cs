@@ -967,6 +967,51 @@ public sealed partial class DrawingCanvas : XamlCanvas
     /// </summary>
     private bool IsPointInShape(Point point, XamlShape shape)
     {
+        // For Ellipse (Oval/Circle), check if point is inside the ellipse
+        if (shape is Ellipse ellipse)
+        {
+            var left = Microsoft.UI.Xaml.Controls.Canvas.GetLeft(ellipse);
+            var top = Microsoft.UI.Xaml.Controls.Canvas.GetTop(ellipse);
+            var centerX = left + ellipse.Width / 2;
+            var centerY = top + ellipse.Height / 2;
+            var radiusX = ellipse.Width / 2;
+            var radiusY = ellipse.Height / 2;
+            
+            // Check if point is inside ellipse: ((x-cx)/rx)^2 + ((y-cy)/ry)^2 <= 1
+            if (radiusX <= 0 || radiusY <= 0)
+                return false;
+            
+            var dx = (point.X - centerX) / radiusX;
+            var dy = (point.Y - centerY) / radiusY;
+            return (dx * dx + dy * dy) <= 1.0;
+        }
+        
+        // For Polygon, check if point is inside using ray casting algorithm
+        if (shape is Polygon polygon)
+        {
+            if (polygon.Points.Count < 3)
+                return false;
+            
+            // Ray casting algorithm: count intersections with polygon edges
+            int intersections = 0;
+            var points = polygon.Points;
+            for (int i = 0; i < points.Count; i++)
+            {
+                var p1 = points[i];
+                var p2 = points[(i + 1) % points.Count];
+                
+                // Check if ray from point to right intersects with edge
+                if (((p1.Y > point.Y) != (p2.Y > point.Y)) &&
+                    (point.X < (p2.X - p1.X) * (point.Y - p1.Y) / (p2.Y - p1.Y) + p1.X))
+                {
+                    intersections++;
+                }
+            }
+            
+            return (intersections % 2) == 1;
+        }
+        
+        // For other shapes, use bounding rectangle
         var bounds = GetShapeBounds(shape);
         return bounds.Contains(point);
     }
