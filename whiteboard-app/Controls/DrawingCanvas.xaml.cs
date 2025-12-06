@@ -95,6 +95,7 @@ public sealed partial class DrawingCanvas : Canvas
             _isDrawing = false;
         }
         _trianglePoints?.Clear();
+        _polygonPoints?.Clear();
         _startPoint = new Point(0, 0);
     }
 
@@ -164,6 +165,7 @@ public sealed partial class DrawingCanvas : Canvas
     private Point _startPoint;
     private bool _isDrawing;
     private System.Collections.Generic.List<Point> _trianglePoints = new();
+    private System.Collections.Generic.List<Point> _polygonPoints = new();
 
     public DrawingCanvas()
     {
@@ -259,6 +261,46 @@ public sealed partial class DrawingCanvas : Canvas
 
         var point = e.GetCurrentPoint(this);
         
+        // Handle Polygon: collect multiple points
+        if (CurrentShapeType.Value == ShapeType.Polygon)
+        {
+            // Start new polygon if not drawing
+            if (!_isDrawing || _polygonPoints.Count == 0)
+            {
+                _polygonPoints.Clear();
+                _isDrawing = true;
+            }
+            
+            var clickPoint = point.Position;
+            
+            // Check if clicking near the first point (within 10 pixels) to close polygon
+            if (_polygonPoints.Count >= 3)
+            {
+                var firstPoint = _polygonPoints[0];
+                var distance = Math.Sqrt(Math.Pow(clickPoint.X - firstPoint.X, 2) + Math.Pow(clickPoint.Y - firstPoint.Y, 2));
+                if (distance <= 10)
+                {
+                    // Close the polygon
+                    FinishPolygonDrawing();
+                    _isDrawing = false;
+                    _polygonPoints.Clear();
+                    e.Handled = true;
+                    return;
+                }
+            }
+            
+            _polygonPoints.Add(clickPoint);
+            
+            // Update preview
+            if (_polygonPoints.Count >= 2)
+            {
+                UpdatePolygonPreview();
+            }
+            
+            e.Handled = true;
+            return;
+        }
+        
         // Handle Triangle: collect 3 points
         if (CurrentShapeType.Value == ShapeType.Triangle)
         {
@@ -301,8 +343,8 @@ public sealed partial class DrawingCanvas : Canvas
         if (!_isDrawing || CurrentShapeType == null)
             return;
 
-        // For Triangle, preview updates are handled in PointerPressed
-        if (CurrentShapeType.Value == ShapeType.Triangle)
+        // For Triangle and Polygon, preview updates are handled in PointerPressed
+        if (CurrentShapeType.Value == ShapeType.Triangle || CurrentShapeType.Value == ShapeType.Polygon)
             return;
 
         var point = e.GetCurrentPoint(this);
@@ -580,17 +622,90 @@ public sealed partial class DrawingCanvas : Canvas
     }
 
     /// <summary>
+    /// Updates the polygon preview based on current points.
+    /// </summary>
+    private void UpdatePolygonPreview()
+    {
+        ClearPreview();
+        
+        if (_polygonPoints.Count < 2)
+            return;
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var polygon = new Polygon
+        {
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+
+        var points = new PointCollection();
+        foreach (var pt in _polygonPoints)
+        {
+            points.Add(pt);
+        }
+        polygon.Points = points;
+
+        _previewShape = polygon;
+        Children.Add(_previewShape);
+    }
+
+    /// <summary>
+    /// Finishes polygon drawing when user closes the polygon.
+    /// </summary>
+    private void FinishPolygonDrawing()
+    {
+        if (_polygonPoints.Count < 3)
+            return;
+
+        ClearPreview();
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var polygon = new Polygon
+        {
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+
+        var points = new PointCollection();
+        foreach (var pt in _polygonPoints)
+        {
+            points.Add(pt);
+        }
+        polygon.Points = points;
+
+        Children.Add(polygon);
+
+        // Raise event with drawing data
+        var args = new ShapeDrawingCompletedEventArgs
+        {
+            ShapeType = ShapeType.Polygon,
+            StartPoint = _polygonPoints[0],
+            EndPoint = _polygonPoints[_polygonPoints.Count - 1],
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+
+        ShapeDrawingCompleted?.Invoke(this, args);
+    }
+
+    /// <summary>
     /// Finishes triangle drawing when 3 points are collected.
     /// </summary>
     private void FinishTriangleDrawing()
     {
-        System.Diagnostics.Debug.WriteLine($"FinishTriangleDrawing: _trianglePoints.Count = {_trianglePoints.Count}");
-        
         if (_trianglePoints.Count != 3)
-        {
-            System.Diagnostics.Debug.WriteLine("FinishTriangleDrawing: Not 3 points, returning");
             return;
-        }
 
         ClearPreview();
 
