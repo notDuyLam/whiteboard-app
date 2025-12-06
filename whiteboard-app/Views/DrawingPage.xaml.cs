@@ -581,6 +581,23 @@ public sealed partial class DrawingPage : Page
             return;
         }
 
+        // Show confirmation dialog
+        var confirmDialog = new ContentDialog
+        {
+            Title = "Delete Canvas",
+            Content = $"Are you sure you want to delete canvas '{_currentCanvas.Name}'? This action cannot be undone and all shapes on this canvas will be deleted.",
+            PrimaryButtonText = "Delete",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Secondary,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await confirmDialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+        {
+            return; // User cancelled
+        }
+
         try
         {
             // Delete canvas from database (cascade delete will handle shapes)
