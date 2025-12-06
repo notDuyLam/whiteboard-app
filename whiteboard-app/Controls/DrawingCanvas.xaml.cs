@@ -201,6 +201,9 @@ public sealed partial class DrawingCanvas : XamlCanvas
     private XamlShape? _selectedShape;
     private Border? _selectionBorder;
     private bool _isSelectionMode = false;
+    private bool _isDragging = false;
+    private Point _dragStartPoint;
+    private Point _shapeStartPosition;
 
     public DrawingCanvas()
     {
@@ -336,6 +339,17 @@ public sealed partial class DrawingCanvas : XamlCanvas
         // Handle shape selection if in selection mode
         if (_isSelectionMode)
         {
+            // Check if clicking on selected shape to start dragging
+            if (_selectedShape != null && IsPointInShape(point.Position, _selectedShape))
+            {
+                _isDragging = true;
+                _dragStartPoint = point.Position;
+                _shapeStartPosition = GetShapePosition(_selectedShape);
+                CapturePointer(e.Pointer);
+                e.Handled = true;
+                return;
+            }
+            
             HandleShapeSelection(point.Position);
             return;
         }
@@ -422,6 +436,19 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
     private void DrawingCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        // Handle shape dragging
+        if (_isDragging && _selectedShape != null)
+        {
+            var dragPoint = e.GetCurrentPoint(this);
+            var deltaX = dragPoint.Position.X - _dragStartPoint.X;
+            var deltaY = dragPoint.Position.Y - _dragStartPoint.Y;
+            
+            MoveShape(_selectedShape, _shapeStartPosition.X + deltaX, _shapeStartPosition.Y + deltaY);
+            UpdateSelectionBorder();
+            e.Handled = true;
+            return;
+        }
+        
         if (!_isDrawing || CurrentShapeType == null)
             return;
 
@@ -453,6 +480,15 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
     private void DrawingCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        // Handle shape dragging end
+        if (_isDragging)
+        {
+            _isDragging = false;
+            ReleasePointerCapture(e.Pointer);
+            e.Handled = true;
+            return;
+        }
+        
         if (!_isDrawing)
             return;
 
@@ -481,6 +517,20 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
     private void DrawingCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
+        // Handle shape dragging cancel
+        if (_isDragging)
+        {
+            // Restore original position
+            if (_selectedShape != null)
+            {
+                MoveShape(_selectedShape, _shapeStartPosition.X, _shapeStartPosition.Y);
+                UpdateSelectionBorder();
+            }
+            _isDragging = false;
+            ReleasePointerCapture(e.Pointer);
+            return;
+        }
+        
         if (_isDrawing)
         {
             // For Triangle, reset points collection
@@ -1106,9 +1156,112 @@ public sealed partial class DrawingCanvas : XamlCanvas
             _selectionBorder = null;
         }
         _selectedShape = null;
+        _isDragging = false;
         
         // Raise selection event (shape deselected)
         ShapeSelected?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Gets the current position of a shape.
+    /// </summary>
+    private Point GetShapePosition(XamlShape shape)
+    {
+        if (shape is Line line)
+        {
+            return new Point(Math.Min(line.X1, line.X2), Math.Min(line.Y1, line.Y2));
+        }
+        else if (shape is Rectangle rect)
+        {
+            return new Point(Microsoft.UI.Xaml.Controls.Canvas.GetLeft(rect), Microsoft.UI.Xaml.Controls.Canvas.GetTop(rect));
+        }
+        else if (shape is Ellipse ellipse)
+        {
+            return new Point(Microsoft.UI.Xaml.Controls.Canvas.GetLeft(ellipse), Microsoft.UI.Xaml.Controls.Canvas.GetTop(ellipse));
+        }
+        else if (shape is Polygon polygon)
+        {
+            if (polygon.Points.Count == 0)
+                return new Point(0, 0);
+            
+            var minX = double.MaxValue;
+            var minY = double.MaxValue;
+            foreach (var pt in polygon.Points)
+            {
+                minX = Math.Min(minX, pt.X);
+                minY = Math.Min(minY, pt.Y);
+            }
+            return new Point(minX, minY);
+        }
+        
+        return new Point(0, 0);
+    }
+
+    /// <summary>
+    /// Moves a shape to a new position.
+    /// </summary>
+    private void MoveShape(XamlShape shape, double newX, double newY)
+    {
+        if (shape is Line line)
+        {
+            var deltaX = newX - Math.Min(line.X1, line.X2);
+            var deltaY = newY - Math.Min(line.Y1, line.Y2);
+            line.X1 += deltaX;
+            line.Y1 += deltaY;
+            line.X2 += deltaX;
+            line.Y2 += deltaY;
+        }
+        else if (shape is Rectangle rect)
+        {
+            Microsoft.UI.Xaml.Controls.Canvas.SetLeft(rect, newX);
+            Microsoft.UI.Xaml.Controls.Canvas.SetTop(rect, newY);
+        }
+        else if (shape is Ellipse ellipse)
+        {
+            Microsoft.UI.Xaml.Controls.Canvas.SetLeft(ellipse, newX);
+            Microsoft.UI.Xaml.Controls.Canvas.SetTop(ellipse, newY);
+        }
+        else if (shape is Polygon polygon)
+        {
+            if (polygon.Points.Count == 0)
+                return;
+            
+            // Get current min position
+            var minX = double.MaxValue;
+            var minY = double.MaxValue;
+            foreach (var pt in polygon.Points)
+            {
+                minX = Math.Min(minX, pt.X);
+                minY = Math.Min(minY, pt.Y);
+            }
+            
+            // Calculate delta
+            var deltaX = newX - minX;
+            var deltaY = newY - minY;
+            
+            // Move all points
+            var newPoints = new PointCollection();
+            foreach (var pt in polygon.Points)
+            {
+                newPoints.Add(new Point(pt.X + deltaX, pt.Y + deltaY));
+            }
+            polygon.Points = newPoints;
+        }
+    }
+
+    /// <summary>
+    /// Updates the selection border position and size.
+    /// </summary>
+    private void UpdateSelectionBorder()
+    {
+        if (_selectedShape == null || _selectionBorder == null)
+            return;
+        
+        var bounds = GetShapeBounds(_selectedShape);
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(_selectionBorder, bounds.X - 2);
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(_selectionBorder, bounds.Y - 2);
+        _selectionBorder.Width = bounds.Width + 4;
+        _selectionBorder.Height = bounds.Height + 4;
     }
 
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
