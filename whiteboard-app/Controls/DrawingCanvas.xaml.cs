@@ -326,10 +326,17 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
     private void DrawingCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        var point = e.GetCurrentPoint(this);
+        
+        // Handle shape selection if in selection mode
+        if (_isSelectionMode)
+        {
+            HandleShapeSelection(point.Position);
+            return;
+        }
+        
         if (CurrentShapeType == null)
             return;
-
-        var point = e.GetCurrentPoint(this);
         
         // Handle Polygon: collect multiple points
         if (CurrentShapeType.Value == ShapeType.Polygon)
