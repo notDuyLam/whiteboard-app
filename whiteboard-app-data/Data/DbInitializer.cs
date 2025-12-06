@@ -12,12 +12,12 @@ public static class DbInitializer
 {
     /// <summary>
     /// Initializes the database and seeds it with default data if it's empty.
+    /// Note: Database migrations should be applied before calling this method.
     /// </summary>
     /// <param name="context">The database context to initialize.</param>
     public static void Initialize(WhiteboardDbContext context)
     {
-        context.Database.EnsureCreated();
-
+        // Check if database has been seeded
         if (context.Profiles.Any())
         {
             return; // Database has been seeded
