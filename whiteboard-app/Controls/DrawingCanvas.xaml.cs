@@ -264,10 +264,9 @@ public sealed partial class DrawingCanvas : Canvas
         // Handle Polygon: collect multiple points
         if (CurrentShapeType.Value == ShapeType.Polygon)
         {
-            // Start new polygon if not drawing
-            if (!_isDrawing || _polygonPoints.Count == 0)
+            // Always start fresh when clicking (reset if needed)
+            if (_polygonPoints.Count == 0)
             {
-                _polygonPoints.Clear();
                 _isDrawing = true;
             }
             
@@ -296,6 +295,7 @@ public sealed partial class DrawingCanvas : Canvas
             {
                 UpdatePolygonPreview();
             }
+            // For first point, no preview needed - user can see the click
             
             e.Handled = true;
             return;
