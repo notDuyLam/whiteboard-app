@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -72,8 +73,29 @@ namespace whiteboard_app
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
+            // Initialize database
+            InitializeDatabase();
+
             _window = new MainWindow();
             _window.Activate();
+        }
+
+        /// <summary>
+        /// Initializes the database by applying migrations and seeding default data.
+        /// </summary>
+        private void InitializeDatabase()
+        {
+            if (ServiceProvider == null)
+                return;
+
+            using var scope = ServiceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<WhiteboardDbContext>();
+            
+            // Apply pending migrations
+            context.Database.Migrate();
+            
+            // Seed initial data
+            DbInitializer.Initialize(context);
         }
     }
 }
