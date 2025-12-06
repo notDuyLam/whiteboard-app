@@ -88,15 +88,21 @@
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <Button
                     x:Name="StartDrawingButton"
-                    Content="Start Drawing"
-                    Icon="Edit"
                     Click="StartDrawingButton_Click"
                     IsEnabled="{x:Bind ViewModel.SelectedProfile, Mode=OneWay}"
-                    Style="{StaticResource AccentButtonStyle}" />
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE70F;" FontSize="16" />
+                        <TextBlock Text="Start Drawing" />
+                    </StackPanel>
+                </Button>
                 <Button
-                    Content="Create New Profile"
-                    Icon="Add"
-                    Click="CreateProfileButton_Click" />
+                    Click="CreateProfileButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE710;" FontSize="16" />
+                        <TextBlock Text="Create New Profile" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
