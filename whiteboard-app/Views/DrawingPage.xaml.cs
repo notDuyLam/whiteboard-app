@@ -1,6 +1,14 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
+using whiteboard_app.Controls;
+using whiteboard_app.Services;
 using whiteboard_app_data.Enums;
+using whiteboard_app_data.Models;
+using whiteboard_app_data.Models.ShapeTypes;
+using CanvasModel = whiteboard_app_data.Models.Canvas;
 using StrokeStyleEnum = whiteboard_app_data.Enums.StrokeStyle;
 
 namespace whiteboard_app.Views;
@@ -10,15 +18,24 @@ namespace whiteboard_app.Views;
 /// </summary>
 public sealed partial class DrawingPage : Page
 {
+    private readonly IDataService? _dataService;
+    private readonly IDrawingService? _drawingService;
+    private CanvasModel? _currentCanvas;
+
     public DrawingPage()
     {
         InitializeComponent();
         InitializeStrokeSettings();
         
+        // Get services from DI
+        _dataService = App.ServiceProvider?.GetService(typeof(IDataService)) as IDataService;
+        _drawingService = App.ServiceProvider?.GetService(typeof(IDrawingService)) as IDrawingService;
+        
         // Subscribe to shape selection events
         if (DrawingCanvasControl != null)
         {
             DrawingCanvasControl.ShapeSelected += DrawingCanvasControl_ShapeSelected;
+            DrawingCanvasControl.ShapeDrawingCompleted += DrawingCanvasControl_ShapeDrawingCompleted;
         }
     }
 
@@ -389,6 +406,94 @@ public sealed partial class DrawingPage : Page
     private void DrawingCanvasControl_ShapeSelected(object? sender, EventArgs e)
     {
         UpdateEditButtonsState();
+    }
+
+    private async void DrawingCanvasControl_ShapeDrawingCompleted(object? sender, ShapeDrawingCompletedEventArgs e)
+    {
+        // Auto-save shape when drawing is completed
+        if (_currentCanvas != null && _dataService != null && _drawingService != null)
+        {
+            await SaveShapeAsync(e);
+        }
+    }
+
+    /// <summary>
+    /// Sets the current canvas for this drawing page.
+    /// </summary>
+    public void SetCanvas(CanvasModel canvas)
+    {
+        _currentCanvas = canvas;
+        if (DrawingCanvasControl != null)
+        {
+            DrawingCanvasControl.CanvasModel = canvas;
+            if (!string.IsNullOrEmpty(canvas.BackgroundColor))
+            {
+                DrawingCanvasControl.BackgroundColor = canvas.BackgroundColor;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Saves a shape to the database.
+    /// </summary>
+    private async Task SaveShapeAsync(ShapeDrawingCompletedEventArgs args)
+    {
+        if (_currentCanvas == null || _dataService == null || _drawingService == null)
+            return;
+
+        try
+        {
+            string serializedData = args.ShapeType switch
+            {
+                ShapeType.Line => _drawingService.SerializeShapeData(new LineShapeData
+                {
+                    StartX = args.StartPoint.X,
+                    StartY = args.StartPoint.Y,
+                    EndX = args.EndPoint.X,
+                    EndY = args.EndPoint.Y
+                }),
+                ShapeType.Rectangle => _drawingService.SerializeShapeData(new RectangleShapeData
+                {
+                    X = Math.Min(args.StartPoint.X, args.EndPoint.X),
+                    Y = Math.Min(args.StartPoint.Y, args.EndPoint.Y),
+                    Width = Math.Abs(args.EndPoint.X - args.StartPoint.X),
+                    Height = Math.Abs(args.EndPoint.Y - args.StartPoint.Y)
+                }),
+                ShapeType.Oval => _drawingService.SerializeShapeData(new OvalShapeData
+                {
+                    CenterX = (args.StartPoint.X + args.EndPoint.X) / 2,
+                    CenterY = (args.StartPoint.Y + args.EndPoint.Y) / 2,
+                    RadiusX = Math.Abs(args.EndPoint.X - args.StartPoint.X) / 2,
+                    RadiusY = Math.Abs(args.EndPoint.Y - args.StartPoint.Y) / 2
+                }),
+                ShapeType.Circle => _drawingService.SerializeShapeData(new CircleShapeData
+                {
+                    CenterX = args.StartPoint.X,
+                    CenterY = args.StartPoint.Y,
+                    Radius = Math.Sqrt(Math.Pow(args.EndPoint.X - args.StartPoint.X, 2) + Math.Pow(args.EndPoint.Y - args.StartPoint.Y, 2))
+                }),
+                _ => string.Empty
+            };
+
+            if (string.IsNullOrEmpty(serializedData))
+                return;
+
+            var shape = _drawingService.CreateShape(
+                args.ShapeType,
+                _currentCanvas.Id,
+                args.StrokeColor,
+                args.StrokeThickness,
+                args.FillColor,
+                serializedData
+            );
+
+            await _dataService.CreateShapeAsync(shape);
+        }
+        catch (Exception)
+        {
+            // Error handling - shape save failed
+            // Could show error dialog here
+        }
     }
 }
 
