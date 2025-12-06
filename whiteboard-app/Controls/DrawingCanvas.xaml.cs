@@ -138,6 +138,25 @@ public sealed partial class DrawingCanvas : Canvas
             new PropertyMetadata(2.0));
 
     /// <summary>
+    /// Gets or sets the stroke style for drawing.
+    /// </summary>
+    public StrokeStyle? StrokeStyle
+    {
+        get => (StrokeStyle?)GetValue(StrokeStyleProperty);
+        set => SetValue(StrokeStyleProperty, value);
+    }
+
+    /// <summary>
+    /// Identifies the StrokeStyle dependency property.
+    /// </summary>
+    public static readonly DependencyProperty StrokeStyleProperty =
+        DependencyProperty.Register(
+            nameof(StrokeStyle),
+            typeof(StrokeStyle?),
+            typeof(DrawingCanvas),
+            new PropertyMetadata(whiteboard_app_data.Enums.StrokeStyle.Solid));
+
+    /// <summary>
     /// Gets or sets the fill color for drawing.
     /// </summary>
     public string FillColor
@@ -252,6 +271,46 @@ public sealed partial class DrawingCanvas : Canvas
         }
 
         throw new ArgumentException("Invalid hex color format");
+    }
+
+    /// <summary>
+    /// Creates a stroke brush with the specified color and applies stroke style.
+    /// </summary>
+    private Brush CreateStrokeBrush(string color)
+    {
+        var brush = new SolidColorBrush(ParseHexColor(color));
+        
+        // Stroke style is applied via ApplyStrokeStyle method
+        
+        return brush;
+    }
+
+    /// <summary>
+    /// Applies stroke style to a shape.
+    /// </summary>
+    private void ApplyStrokeStyle(Shape shape)
+    {
+        if (StrokeStyle.HasValue && StrokeStyle.Value != whiteboard_app_data.Enums.StrokeStyle.Solid)
+        {
+            var strokeCollection = new DoubleCollection();
+            if (StrokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dash)
+            {
+                // Dash pattern: 4 units on, 2 units off
+                strokeCollection.Add(4);
+                strokeCollection.Add(2);
+            }
+            else if (StrokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dot)
+            {
+                // Dot pattern: 1 unit on, 2 units off
+                strokeCollection.Add(1);
+                strokeCollection.Add(2);
+            }
+            shape.StrokeDashArray = strokeCollection;
+        }
+        else
+        {
+            shape.StrokeDashArray = null;
+        }
     }
 
     private void DrawingCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -471,7 +530,7 @@ public sealed partial class DrawingCanvas : Canvas
     /// </summary>
     private void RenderFinalLine(Point startPoint, Point endPoint)
     {
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var line = new Line
         {
             X1 = startPoint.X,
@@ -481,6 +540,7 @@ public sealed partial class DrawingCanvas : Canvas
             Stroke = strokeBrush,
             StrokeThickness = StrokeThickness
         };
+        ApplyStrokeStyle(line);
         Children.Add(line);
     }
 
@@ -494,7 +554,7 @@ public sealed partial class DrawingCanvas : Canvas
         var width = Math.Abs(endPoint.X - startPoint.X);
         var height = Math.Abs(endPoint.Y - startPoint.Y);
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -507,6 +567,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(rect);
         Canvas.SetLeft(rect, left);
         Canvas.SetTop(rect, top);
         Children.Add(rect);
@@ -522,7 +583,7 @@ public sealed partial class DrawingCanvas : Canvas
         var width = Math.Abs(endPoint.X - startPoint.X);
         var height = Math.Abs(endPoint.Y - startPoint.Y);
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -535,6 +596,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(ellipse);
         Canvas.SetLeft(ellipse, left);
         Canvas.SetTop(ellipse, top);
         Children.Add(ellipse);
@@ -550,7 +612,7 @@ public sealed partial class DrawingCanvas : Canvas
         var radius = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
         var diameter = radius * 2;
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -563,6 +625,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(ellipse);
         Canvas.SetLeft(ellipse, startPoint.X - radius);
         Canvas.SetTop(ellipse, startPoint.Y - radius);
         Children.Add(ellipse);
@@ -578,7 +641,7 @@ public sealed partial class DrawingCanvas : Canvas
         if (_trianglePoints.Count < 2)
             return;
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
 
         // If we have 2 points, show a line preview
         if (_trianglePoints.Count == 2)
@@ -592,6 +655,7 @@ public sealed partial class DrawingCanvas : Canvas
                 Stroke = strokeBrush,
                 StrokeThickness = StrokeThickness
             };
+            ApplyStrokeStyle(line);
             _previewShape = line;
             Children.Add(_previewShape);
         }
@@ -608,6 +672,7 @@ public sealed partial class DrawingCanvas : Canvas
                 StrokeThickness = StrokeThickness,
                 Fill = fillBrush
             };
+            ApplyStrokeStyle(polygon);
 
             var points = new PointCollection();
             foreach (var pt in _trianglePoints)
@@ -631,7 +696,7 @@ public sealed partial class DrawingCanvas : Canvas
         if (_polygonPoints.Count < 2)
             return;
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -642,6 +707,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(polygon);
 
         var points = new PointCollection();
         foreach (var pt in _polygonPoints)
@@ -664,7 +730,7 @@ public sealed partial class DrawingCanvas : Canvas
 
         ClearPreview();
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -675,6 +741,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(polygon);
 
         var points = new PointCollection();
         foreach (var pt in _polygonPoints)
@@ -709,7 +776,7 @@ public sealed partial class DrawingCanvas : Canvas
 
         ClearPreview();
 
-        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var strokeBrush = CreateStrokeBrush(StrokeColor);
         var fillBrush = FillColor == "Transparent"
             ? null
             : new SolidColorBrush(ParseHexColor(FillColor));
@@ -720,6 +787,7 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(polygon);
 
         var points = new PointCollection();
         foreach (var pt in _trianglePoints)
