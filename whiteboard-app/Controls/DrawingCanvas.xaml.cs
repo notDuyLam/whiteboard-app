@@ -320,15 +320,19 @@ public sealed partial class DrawingCanvas : XamlCanvas
             }
             else if (StrokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dot)
             {
-                // Dot pattern: 1 unit on, 2 units off
-                strokeCollection.Add(1);
-                strokeCollection.Add(2);
+                // Dot pattern: 0 units on (dot), spacing based on stroke thickness
+                var spacing = Math.Max(StrokeThickness * 2, 3.0); // Minimum spacing of 3
+                strokeCollection.Add(0);
+                strokeCollection.Add(spacing);
+                // Set StrokeDashCap to Round to make dots circular
+                shape.StrokeDashCap = Microsoft.UI.Xaml.Media.PenLineCap.Round;
             }
             shape.StrokeDashArray = strokeCollection;
         }
         else
         {
             shape.StrokeDashArray = null;
+            shape.StrokeDashCap = Microsoft.UI.Xaml.Media.PenLineCap.Flat;
         }
     }
 
@@ -1321,8 +1325,10 @@ public sealed partial class DrawingCanvas : XamlCanvas
         if (shape.StrokeDashArray.Count == 2 && shape.StrokeDashArray[0] == 2 && shape.StrokeDashArray[1] == 2)
             return whiteboard_app_data.Enums.StrokeStyle.Dash;
         
-        // Check for dot pattern
-        if (shape.StrokeDashArray.Count == 2 && shape.StrokeDashArray[0] == 0 && shape.StrokeDashArray[1] == 2)
+        // Check for dot pattern (0, spacing) - spacing can vary based on stroke thickness
+        if (shape.StrokeDashArray.Count == 2 && 
+            Math.Abs(shape.StrokeDashArray[0]) < 0.1 && 
+            shape.StrokeDashArray[1] >= 2.0)
             return whiteboard_app_data.Enums.StrokeStyle.Dot;
         
         return whiteboard_app_data.Enums.StrokeStyle.Solid;
@@ -1388,11 +1394,18 @@ public sealed partial class DrawingCanvas : XamlCanvas
         }
         else if (strokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dot)
         {
-            shape.StrokeDashArray = new DoubleCollection { 0, 2 };
+            // Dot pattern: 0 units on (dot), spacing based on stroke thickness
+            // Use stroke thickness * 2 for spacing to ensure dots are visible
+            var strokeThickness = shape.StrokeThickness;
+            var spacing = Math.Max(strokeThickness * 2, 3.0); // Minimum spacing of 3
+            shape.StrokeDashArray = new DoubleCollection { 0, spacing };
+            // Set StrokeDashCap to Round to make dots circular
+            shape.StrokeDashCap = Microsoft.UI.Xaml.Media.PenLineCap.Round;
         }
         else
         {
             shape.StrokeDashArray = null;
+            shape.StrokeDashCap = Microsoft.UI.Xaml.Media.PenLineCap.Flat;
         }
     }
 

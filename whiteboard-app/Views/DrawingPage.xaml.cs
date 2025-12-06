@@ -46,8 +46,15 @@ public sealed partial class DrawingPage : Page
             StrokeThicknessTextBlock.Text = "2";
         }
         
+        // Set default fill color
+        if (FillColorTextBox != null)
+        {
+            FillColorTextBox.Text = "Transparent";
+        }
+        
         // Apply initial settings to canvas
         ApplyStrokeSettings();
+        ApplyFillColor();
     }
 
     private void ApplyStrokeSettings()
@@ -78,6 +85,23 @@ public sealed partial class DrawingPage : Page
         {
             DrawingCanvasControl.StrokeThickness = StrokeThicknessSlider.Value;
         }
+    }
+
+    private void ApplyFillColor()
+    {
+        if (DrawingCanvasControl == null)
+            return;
+        
+        // Apply fill color
+        if (FillColorTextBox != null)
+        {
+            DrawingCanvasControl.FillColor = FillColorTextBox.Text;
+        }
+    }
+
+    private void FillColorTextBox_TextChanged(object sender, Microsoft.UI.Xaml.Controls.TextChangedEventArgs e)
+    {
+        ApplyFillColor();
     }
 
     private void LineToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

@@ -132,6 +132,14 @@
                         Text="2"
                         HorizontalAlignment="Center" />
                     
+                    <!-- Fill Color -->
+                    <TextBox
+                        x:Name="FillColorTextBox"
+                        Header="Fill Color (Hex or Transparent)"
+                        Text="Transparent"
+                        PlaceholderText="Transparent or #RRGGBB"
+                        TextChanged="FillColorTextBox_TextChanged" />
+                    
                     <!-- Selection Mode -->
                     <TextBlock
                         Text="Selection and Editing"
