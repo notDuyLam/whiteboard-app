@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -55,8 +56,20 @@ namespace whiteboard_app
         {
             var services = new ServiceCollection();
 
-            // Register DbContext
-            services.AddDbContext<WhiteboardDbContext>();
+            // Register DbContext with connection string
+            var dbPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WhiteboardApp",
+                "whiteboard.db");
+
+            var directory = System.IO.Path.GetDirectoryName(dbPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            services.AddDbContext<WhiteboardDbContext>(options =>
+                options.UseSqlite($"Data Source={dbPath}"));
 
             // Register Services
             services.AddSingleton<INavigationService, NavigationService>();
@@ -88,14 +101,36 @@ namespace whiteboard_app
             if (ServiceProvider == null)
                 return;
 
-            using var scope = ServiceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<WhiteboardDbContext>();
-            
-            // Apply pending migrations
-            context.Database.Migrate();
-            
-            // Seed initial data
-            DbInitializer.Initialize(context);
+            try
+            {
+                using var scope = ServiceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<WhiteboardDbContext>();
+                
+                // Ensure database is created
+                if (!context.Database.CanConnect())
+                {
+                    // Apply pending migrations
+                    context.Database.Migrate();
+                }
+                else
+                {
+                    // Database exists, check if migrations are pending
+                    var pendingMigrations = context.Database.GetPendingMigrations();
+                    if (pendingMigrations.Any())
+                    {
+                        context.Database.Migrate();
+                    }
+                }
+                
+                // Seed initial data
+                DbInitializer.Initialize(context);
+            }
+            catch (Exception ex)
+            {
+                // Log error - in production, use proper logging
+                System.Diagnostics.Debug.WriteLine($"Database initialization error: {ex.Message}");
+                // Try to continue - database might already exist
+            }
         }
     }
 }
