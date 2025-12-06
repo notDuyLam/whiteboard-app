@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,7 +9,11 @@ using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using Windows.UI;
 using whiteboard_app_data.Enums;
+using whiteboard_app_data.Models;
 using CanvasModel = whiteboard_app_data.Models.Canvas;
+using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
+using ShapeModel = whiteboard_app_data.Models.Shape;
+using XamlShape = Microsoft.UI.Xaml.Shapes.Shape;
 
 namespace whiteboard_app.Controls;
 
@@ -16,7 +21,7 @@ namespace whiteboard_app.Controls;
 /// Custom Canvas control for drawing shapes on a whiteboard.
 /// Extends the base Canvas control with drawing-specific functionality.
 /// </summary>
-public sealed partial class DrawingCanvas : Canvas
+public sealed partial class DrawingCanvas : XamlCanvas
 {
     /// <summary>
     /// Gets or sets the background color of the drawing canvas.
@@ -180,11 +185,17 @@ public sealed partial class DrawingCanvas : Canvas
     /// </summary>
     public event EventHandler<ShapeDrawingCompletedEventArgs>? ShapeDrawingCompleted;
 
-    private Shape? _previewShape;
+    private XamlShape? _previewShape;
     private Point _startPoint;
     private bool _isDrawing;
     private System.Collections.Generic.List<Point> _trianglePoints = new();
     private System.Collections.Generic.List<Point> _polygonPoints = new();
+    
+    // Shape selection and editing
+    private Dictionary<XamlShape, ShapeModel> _shapeMap = new();
+    private XamlShape? _selectedShape;
+    private Border? _selectionBorder;
+    private bool _isSelectionMode = false;
 
     public DrawingCanvas()
     {
@@ -288,7 +299,7 @@ public sealed partial class DrawingCanvas : Canvas
     /// <summary>
     /// Applies stroke style to a shape.
     /// </summary>
-    private void ApplyStrokeStyle(Shape shape)
+    private void ApplyStrokeStyle(XamlShape shape)
     {
         if (StrokeStyle.HasValue && StrokeStyle.Value != whiteboard_app_data.Enums.StrokeStyle.Solid)
         {
@@ -542,6 +553,17 @@ public sealed partial class DrawingCanvas : Canvas
         };
         ApplyStrokeStyle(line);
         Children.Add(line);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Line,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[line] = shapeEntity;
     }
 
     /// <summary>
@@ -568,9 +590,20 @@ public sealed partial class DrawingCanvas : Canvas
             Fill = fillBrush
         };
         ApplyStrokeStyle(rect);
-        Canvas.SetLeft(rect, left);
-        Canvas.SetTop(rect, top);
+        XamlCanvas.SetLeft(rect, left);
+        XamlCanvas.SetTop(rect, top);
         Children.Add(rect);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Rectangle,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[rect] = shapeEntity;
     }
 
     /// <summary>
@@ -597,8 +630,8 @@ public sealed partial class DrawingCanvas : Canvas
             Fill = fillBrush
         };
         ApplyStrokeStyle(ellipse);
-        Canvas.SetLeft(ellipse, left);
-        Canvas.SetTop(ellipse, top);
+        XamlCanvas.SetLeft(ellipse, left);
+        XamlCanvas.SetTop(ellipse, top);
         Children.Add(ellipse);
     }
 
@@ -626,9 +659,20 @@ public sealed partial class DrawingCanvas : Canvas
             Fill = fillBrush
         };
         ApplyStrokeStyle(ellipse);
-        Canvas.SetLeft(ellipse, startPoint.X - radius);
-        Canvas.SetTop(ellipse, startPoint.Y - radius);
+        XamlCanvas.SetLeft(ellipse, startPoint.X - radius);
+        XamlCanvas.SetTop(ellipse, startPoint.Y - radius);
         Children.Add(ellipse);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Circle,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[ellipse] = shapeEntity;
     }
 
     /// <summary>
@@ -797,6 +841,17 @@ public sealed partial class DrawingCanvas : Canvas
         polygon.Points = points;
 
         Children.Add(polygon);
+        
+        // Track shape for selection
+        var shapeEntity = new ShapeConcrete
+        {
+            Id = Guid.NewGuid(),
+            ShapeType = ShapeType.Triangle,
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+        _shapeMap[polygon] = shapeEntity;
 
         // Raise event with drawing data
         var args = new ShapeDrawingCompletedEventArgs
@@ -821,7 +876,157 @@ public sealed partial class DrawingCanvas : Canvas
         }
     }
 
-    private Shape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
+    /// <summary>
+    /// Gets or sets whether the canvas is in selection mode.
+    /// </summary>
+    public bool IsSelectionMode
+    {
+        get => _isSelectionMode;
+        set
+        {
+            _isSelectionMode = value;
+            if (!value)
+            {
+                ClearSelection();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the currently selected shape UI element.
+    /// </summary>
+    public XamlShape? SelectedShape => _selectedShape;
+
+    /// <summary>
+    /// Handles shape selection when clicking on the canvas.
+    /// </summary>
+    private void HandleShapeSelection(Point clickPoint)
+    {
+        // Find the topmost shape at the click point
+        XamlShape? hitShape = null;
+        
+        // Check shapes in reverse order (top to bottom)
+        for (int i = Children.Count - 1; i >= 0; i--)
+        {
+            if (Children[i] is XamlShape shape && _shapeMap.ContainsKey(shape))
+            {
+                if (IsPointInShape(clickPoint, shape))
+                {
+                    hitShape = shape;
+                    break;
+                }
+            }
+        }
+        
+        if (hitShape != null)
+        {
+            SelectShape(hitShape);
+        }
+        else
+        {
+            ClearSelection();
+        }
+    }
+
+    /// <summary>
+    /// Checks if a point is within a shape's bounds.
+    /// </summary>
+    private bool IsPointInShape(Point point, XamlShape shape)
+    {
+        var bounds = GetShapeBounds(shape);
+        return bounds.Contains(point);
+    }
+
+    /// <summary>
+    /// Gets the bounding rectangle of a shape.
+    /// </summary>
+    private Rect GetShapeBounds(XamlShape shape)
+    {
+        if (shape is Line line)
+        {
+            var left = Math.Min(line.X1, line.X2);
+            var top = Math.Min(line.Y1, line.Y2);
+            var right = Math.Max(line.X1, line.X2);
+            var bottom = Math.Max(line.Y1, line.Y2);
+            return new Rect(left, top, right - left, bottom - top);
+        }
+        else if (shape is Rectangle rect)
+        {
+            var left = XamlCanvas.GetLeft(rect);
+            var top = XamlCanvas.GetTop(rect);
+            return new Rect(left, top, rect.Width, rect.Height);
+        }
+        else if (shape is Ellipse ellipse)
+        {
+            var left = Microsoft.UI.Xaml.Controls.Canvas.GetLeft(ellipse);
+            var top = Microsoft.UI.Xaml.Controls.Canvas.GetTop(ellipse);
+            return new Rect(left, top, ellipse.Width, ellipse.Height);
+        }
+        else if (shape is Polygon polygon)
+        {
+            if (polygon.Points.Count == 0)
+                return new Rect();
+            
+            var minX = double.MaxValue;
+            var minY = double.MaxValue;
+            var maxX = double.MinValue;
+            var maxY = double.MinValue;
+            
+            foreach (var pt in polygon.Points)
+            {
+                minX = Math.Min(minX, pt.X);
+                minY = Math.Min(minY, pt.Y);
+                maxX = Math.Max(maxX, pt.X);
+                maxY = Math.Max(maxY, pt.Y);
+            }
+            
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
+        }
+        
+        return new Rect();
+    }
+
+    /// <summary>
+    /// Selects a shape and shows selection border.
+    /// </summary>
+    private void SelectShape(XamlShape shape)
+    {
+        ClearSelection();
+        
+        _selectedShape = shape;
+        var bounds = GetShapeBounds(shape);
+        
+        // Create selection border
+        _selectionBorder = new Border
+        {
+            BorderBrush = new SolidColorBrush(Colors.Blue),
+            BorderThickness = new Thickness(2),
+            Background = new SolidColorBrush(Colors.Transparent),
+            IsHitTestVisible = false
+        };
+        
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(_selectionBorder, bounds.X - 2);
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(_selectionBorder, bounds.Y - 2);
+        _selectionBorder.Width = bounds.Width + 4;
+        _selectionBorder.Height = bounds.Height + 4;
+        
+        Children.Add(_selectionBorder);
+    }
+
+    /// <summary>
+    /// Clears the current selection.
+    /// </summary>
+    private void ClearSelection()
+    {
+        if (_selectionBorder != null)
+        {
+            Children.Remove(_selectionBorder);
+            _selectionBorder = null;
+        }
+        _selectedShape = null;
+    }
+
+    private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
     {
         var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
         var fillBrush = FillColor == "Transparent" 
@@ -838,7 +1043,7 @@ public sealed partial class DrawingCanvas : Canvas
         };
     }
 
-    private Shape CreatePreviewLine(Point start, Point end, Brush strokeBrush)
+    private XamlShape CreatePreviewLine(Point start, Point end, Brush strokeBrush)
     {
         var line = new Line
         {
@@ -852,7 +1057,7 @@ public sealed partial class DrawingCanvas : Canvas
         return line;
     }
 
-    private Shape CreatePreviewRectangle(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
+    private XamlShape CreatePreviewRectangle(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
     {
         var left = Math.Min(start.X, end.X);
         var top = Math.Min(start.Y, end.Y);
@@ -867,12 +1072,12 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
-        Canvas.SetLeft(rect, left);
-        Canvas.SetTop(rect, top);
+        XamlCanvas.SetLeft(rect, left);
+        XamlCanvas.SetTop(rect, top);
         return rect;
     }
 
-    private Shape CreatePreviewOval(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
+    private XamlShape CreatePreviewOval(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
     {
         var left = Math.Min(start.X, end.X);
         var top = Math.Min(start.Y, end.Y);
@@ -887,12 +1092,12 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
-        Canvas.SetLeft(ellipse, left);
-        Canvas.SetTop(ellipse, top);
+        XamlCanvas.SetLeft(ellipse, left);
+        XamlCanvas.SetTop(ellipse, top);
         return ellipse;
     }
 
-    private Shape CreatePreviewCircle(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
+    private XamlShape CreatePreviewCircle(Point start, Point end, Brush strokeBrush, Brush? fillBrush)
     {
         var radius = Math.Sqrt(Math.Pow(end.X - start.X, 2) + Math.Pow(end.Y - start.Y, 2));
         var diameter = radius * 2;
@@ -905,8 +1110,8 @@ public sealed partial class DrawingCanvas : Canvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
-        Canvas.SetLeft(ellipse, start.X - radius);
-        Canvas.SetTop(ellipse, start.Y - radius);
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(ellipse, start.X - radius);
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(ellipse, start.Y - radius);
         return ellipse;
     }
 }
