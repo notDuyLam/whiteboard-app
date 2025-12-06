@@ -49,6 +49,15 @@ public sealed partial class DrawingPage : Page
         UpdateToolButtonStates(CircleToolButton);
     }
 
+    private void TriangleToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Triangle as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Triangle;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(TriangleToolButton);
+    }
+
     private void UpdateToolButtonStates(Button? activeButton)
     {
         // Reset all tool buttons
@@ -56,6 +65,7 @@ public sealed partial class DrawingPage : Page
         RectangleToolButton.Style = null;
         OvalToolButton.Style = null;
         CircleToolButton.Style = null;
+        TriangleToolButton.Style = null;
         
         // Set active button style
         if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))

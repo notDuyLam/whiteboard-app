@@ -71,6 +71,17 @@
                             <TextBlock Text="Circle" />
                         </StackPanel>
                     </Button>
+                    
+                    <!-- Triangle Tool -->
+                    <Button
+                        x:Name="TriangleToolButton"
+                        Click="TriangleToolButton_Click"
+                        HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE7C5;" FontSize="16" />
+                            <TextBlock Text="Triangle" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </ScrollViewer>
         </Border>
