@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -15,6 +16,8 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using whiteboard_app.Services;
+using whiteboard_app_data.Data;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -27,6 +30,12 @@ namespace whiteboard_app
     public partial class App : Application
     {
         private Window? _window;
+        private ServiceProvider? _serviceProvider;
+
+        /// <summary>
+        /// Gets the service provider for dependency injection.
+        /// </summary>
+        public static ServiceProvider? ServiceProvider { get; private set; }
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -35,6 +44,26 @@ namespace whiteboard_app
         public App()
         {
             InitializeComponent();
+            ConfigureServices();
+        }
+
+        /// <summary>
+        /// Configures the dependency injection container with all required services.
+        /// </summary>
+        private void ConfigureServices()
+        {
+            var services = new ServiceCollection();
+
+            // Register DbContext
+            services.AddDbContext<WhiteboardDbContext>();
+
+            // Register Services
+            services.AddSingleton<INavigationService, NavigationService>();
+            services.AddSingleton<IThemeService, ThemeService>();
+            services.AddScoped<IDataService, DataService>();
+
+            _serviceProvider = services.BuildServiceProvider();
+            ServiceProvider = _serviceProvider;
         }
 
         /// <summary>
