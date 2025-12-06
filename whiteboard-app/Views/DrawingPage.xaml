@@ -38,6 +38,17 @@
                             <TextBlock Text="Line" />
                         </StackPanel>
                     </Button>
+                    
+                    <!-- Rectangle Tool -->
+                    <Button
+                        x:Name="RectangleToolButton"
+                        Click="RectangleToolButton_Click"
+                        HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE790;" FontSize="16" />
+                            <TextBlock Text="Rectangle" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </ScrollViewer>
         </Border>

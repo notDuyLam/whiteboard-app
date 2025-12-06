@@ -22,10 +22,20 @@ public sealed partial class DrawingPage : Page
         UpdateToolButtonStates(LineToolButton);
     }
 
+    private void RectangleToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Rectangle as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Rectangle;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(RectangleToolButton);
+    }
+
     private void UpdateToolButtonStates(Button? activeButton)
     {
         // Reset all tool buttons
         LineToolButton.Style = null;
+        RectangleToolButton.Style = null;
         
         // Set active button style
         if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))
