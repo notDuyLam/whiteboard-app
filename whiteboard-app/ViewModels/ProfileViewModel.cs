@@ -245,6 +245,28 @@ public partial class ProfileViewModel : ObservableObject
         NewProfileFillColor = "Transparent";
     }
 
+    [RelayCommand]
+    private async Task DeleteProfileAsync(Profile? profile)
+    {
+        if (profile == null)
+            return;
+
+        try
+        {
+            var success = await _dataService.DeleteProfileAsync(profile.Id);
+            if (success)
+            {
+                await LoadProfilesAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // Error handling - profile deletion failed
+            // In a real app, we would show an error message to the user
+            throw;
+        }
+    }
+
     private void ResetEditProfileFields()
     {
         EditProfileName = string.Empty;

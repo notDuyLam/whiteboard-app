@@ -381,5 +381,27 @@ public sealed partial class ProfilePage : Page
 
         await dialog.ShowAsync();
     }
+
+    private async void DeleteProfileButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is Profile profile)
+        {
+            var confirmDialog = new ContentDialog
+            {
+                Title = "Delete Profile",
+                Content = $"Are you sure you want to delete profile '{profile.Name}'? This action cannot be undone.",
+                PrimaryButtonText = "Delete",
+                SecondaryButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Secondary,
+                XamlRoot = XamlRoot
+            };
+
+            var result = await confirmDialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                await ViewModel.DeleteProfileCommand.ExecuteAsync(profile);
+            }
+        }
+    }
 }
 
