@@ -87,9 +87,10 @@
             <!-- Action Buttons -->
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <Button
+                    x:Name="StartDrawingButton"
                     Content="Start Drawing"
                     Icon="Edit"
-                    Command="{x:Bind ViewModel.NavigateToDrawingCommand}"
+                    Click="StartDrawingButton_Click"
                     IsEnabled="{x:Bind ViewModel.SelectedProfile, Mode=OneWay}"
                     Style="{StaticResource AccentButtonStyle}" />
                 <Button

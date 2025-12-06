@@ -50,11 +50,12 @@ public partial class HomeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NavigateToDrawing()
+    private async Task NavigateToDrawingAsync()
     {
         if (SelectedProfile != null)
         {
-            // Navigation will be handled with confirmation dialog in the next commit
+            // Confirmation dialog will be shown in the View
+            await Task.CompletedTask;
         }
     }
 }
