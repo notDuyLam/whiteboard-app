@@ -76,5 +76,31 @@ public partial class HomeViewModel : ObservableObject
     {
         return await _dataService.GetProfileByIdAsync(profileId);
     }
+
+    [RelayCommand]
+    private async Task CreateCanvasAsync((string Name, int Width, int Height, string BackgroundColor) canvasData)
+    {
+        if (SelectedProfile == null || string.IsNullOrWhiteSpace(canvasData.Name))
+            return;
+
+        var newCanvas = new Canvas
+        {
+            Name = canvasData.Name.Trim(),
+            Width = canvasData.Width,
+            Height = canvasData.Height,
+            BackgroundColor = canvasData.BackgroundColor,
+            ProfileId = SelectedProfile.Id
+        };
+
+        try
+        {
+            await _dataService.CreateCanvasAsync(newCanvas);
+        }
+        catch (Exception)
+        {
+            // Error handling - canvas creation failed
+            throw;
+        }
+    }
 }
 
