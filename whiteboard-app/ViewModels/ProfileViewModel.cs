@@ -49,6 +49,33 @@ public partial class ProfileViewModel : ObservableObject
     [ObservableProperty]
     private string newProfileFillColor = "Transparent";
 
+    [ObservableProperty]
+    private bool isEditDialogOpen;
+
+    [ObservableProperty]
+    private Profile? profileToEdit;
+
+    [ObservableProperty]
+    private string editProfileName = string.Empty;
+
+    [ObservableProperty]
+    private string editProfileTheme = "System";
+
+    [ObservableProperty]
+    private int editProfileCanvasWidth = 800;
+
+    [ObservableProperty]
+    private int editProfileCanvasHeight = 600;
+
+    [ObservableProperty]
+    private string editProfileStrokeColor = "#000000";
+
+    [ObservableProperty]
+    private double editProfileStrokeThickness = 2.0;
+
+    [ObservableProperty]
+    private string editProfileFillColor = "Transparent";
+
     public ProfileViewModel(IDataService dataService)
     {
         _dataService = dataService;
@@ -128,6 +155,71 @@ public partial class ProfileViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void OpenEditDialog(Profile? profile)
+    {
+        if (profile == null)
+            return;
+
+        ProfileToEdit = profile;
+        EditProfileName = profile.Name;
+        EditProfileTheme = profile.Theme;
+        EditProfileCanvasWidth = profile.DefaultCanvasWidth;
+        EditProfileCanvasHeight = profile.DefaultCanvasHeight;
+        EditProfileStrokeColor = profile.DefaultStrokeColor;
+        EditProfileStrokeThickness = profile.DefaultStrokeThickness;
+        EditProfileFillColor = profile.DefaultFillColor;
+        IsEditDialogOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseEditDialog()
+    {
+        IsEditDialogOpen = false;
+        ProfileToEdit = null;
+        ResetEditProfileFields();
+    }
+
+    [RelayCommand]
+    private async Task UpdateProfileAsync()
+    {
+        if (ProfileToEdit == null || string.IsNullOrWhiteSpace(EditProfileName))
+        {
+            return;
+        }
+
+        // Validate profile name uniqueness (excluding current profile)
+        var existingProfile = Profiles.FirstOrDefault(p => 
+            p.Id != ProfileToEdit.Id && 
+            p.Name.Equals(EditProfileName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (existingProfile != null)
+        {
+            // Profile name already exists - validation will be shown in UI
+            return;
+        }
+
+        // Update profile properties
+        ProfileToEdit.Name = EditProfileName.Trim();
+        ProfileToEdit.Theme = EditProfileTheme;
+        ProfileToEdit.DefaultCanvasWidth = EditProfileCanvasWidth;
+        ProfileToEdit.DefaultCanvasHeight = EditProfileCanvasHeight;
+        ProfileToEdit.DefaultStrokeColor = EditProfileStrokeColor;
+        ProfileToEdit.DefaultStrokeThickness = EditProfileStrokeThickness;
+        ProfileToEdit.DefaultFillColor = EditProfileFillColor;
+
+        try
+        {
+            await _dataService.UpdateProfileAsync(ProfileToEdit);
+            await LoadProfilesAsync();
+            CloseEditDialog();
+        }
+        catch
+        {
+            // Error handling - profile update failed
+            // In a real app, we would show an error message to the user
+        }
+    }
+
     private void ResetNewProfileFields()
     {
         NewProfileName = string.Empty;
@@ -137,6 +229,17 @@ public partial class ProfileViewModel : ObservableObject
         NewProfileStrokeColor = "#000000";
         NewProfileStrokeThickness = 2.0;
         NewProfileFillColor = "Transparent";
+    }
+
+    private void ResetEditProfileFields()
+    {
+        EditProfileName = string.Empty;
+        EditProfileTheme = "System";
+        EditProfileCanvasWidth = 800;
+        EditProfileCanvasHeight = 600;
+        EditProfileStrokeColor = "#000000";
+        EditProfileStrokeThickness = 2.0;
+        EditProfileFillColor = "Transparent";
     }
 }
 

@@ -76,6 +76,13 @@
                                         Text="{Binding DefaultStrokeColor}"
                                         Style="{StaticResource CaptionTextBlockStyle}"
                                         Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                                    <Button
+                                        x:Name="EditProfileButton"
+                                        Content="Edit"
+                                        Click="EditProfileButton_Click"
+                                        Tag="{Binding}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Margin="0,8,0,0" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
