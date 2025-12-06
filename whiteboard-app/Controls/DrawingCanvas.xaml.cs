@@ -140,6 +140,7 @@ public sealed partial class DrawingCanvas : Canvas
     private Shape? _previewShape;
     private Point _startPoint;
     private bool _isDrawing;
+    private System.Collections.Generic.List<Point> _trianglePoints = new();
 
     public DrawingCanvas()
     {
@@ -230,10 +231,41 @@ public sealed partial class DrawingCanvas : Canvas
 
     private void DrawingCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (CurrentShapeType == null || _isDrawing)
+        if (CurrentShapeType == null)
             return;
 
         var point = e.GetCurrentPoint(this);
+        
+        // Handle Triangle: collect 3 points
+        if (CurrentShapeType.Value == ShapeType.Triangle)
+        {
+            if (!_isDrawing)
+            {
+                _trianglePoints.Clear();
+                _isDrawing = true;
+            }
+            
+            _trianglePoints.Add(point.Position);
+            
+            // If we have 3 points, finish the triangle
+            if (_trianglePoints.Count == 3)
+            {
+                FinishTriangleDrawing();
+                _isDrawing = false;
+                _trianglePoints.Clear();
+            }
+            else
+            {
+                // Update preview with current points
+                UpdateTrianglePreview();
+            }
+            return;
+        }
+        
+        // For other shapes, start drawing normally
+        if (_isDrawing)
+            return;
+
         _startPoint = point.Position;
         _isDrawing = true;
         CapturePointer(e.Pointer);
@@ -242,6 +274,10 @@ public sealed partial class DrawingCanvas : Canvas
     private void DrawingCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (!_isDrawing || CurrentShapeType == null)
+            return;
+
+        // For Triangle, preview updates are handled in PointerPressed
+        if (CurrentShapeType.Value == ShapeType.Triangle)
             return;
 
         var point = e.GetCurrentPoint(this);
@@ -458,6 +494,84 @@ public sealed partial class DrawingCanvas : Canvas
         Canvas.SetLeft(ellipse, startPoint.X - radius);
         Canvas.SetTop(ellipse, startPoint.Y - radius);
         Children.Add(ellipse);
+    }
+
+    /// <summary>
+    /// Updates the triangle preview based on current points.
+    /// </summary>
+    private void UpdateTrianglePreview()
+    {
+        ClearPreview();
+        
+        if (_trianglePoints.Count < 2)
+            return;
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var polygon = new Polygon
+        {
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+
+        var points = new PointCollection();
+        foreach (var pt in _trianglePoints)
+        {
+            points.Add(pt);
+        }
+        polygon.Points = points;
+
+        _previewShape = polygon;
+        Children.Add(_previewShape);
+    }
+
+    /// <summary>
+    /// Finishes triangle drawing when 3 points are collected.
+    /// </summary>
+    private void FinishTriangleDrawing()
+    {
+        if (_trianglePoints.Count != 3)
+            return;
+
+        ClearPreview();
+
+        var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
+        var fillBrush = FillColor == "Transparent"
+            ? null
+            : new SolidColorBrush(ParseHexColor(FillColor));
+
+        var polygon = new Polygon
+        {
+            Stroke = strokeBrush,
+            StrokeThickness = StrokeThickness,
+            Fill = fillBrush
+        };
+
+        var points = new PointCollection();
+        foreach (var pt in _trianglePoints)
+        {
+            points.Add(pt);
+        }
+        polygon.Points = points;
+
+        Children.Add(polygon);
+
+        // Raise event with drawing data
+        var args = new ShapeDrawingCompletedEventArgs
+        {
+            ShapeType = ShapeType.Triangle,
+            StartPoint = _trianglePoints[0],
+            EndPoint = _trianglePoints[2],
+            StrokeColor = StrokeColor,
+            StrokeThickness = StrokeThickness,
+            FillColor = FillColor
+        };
+
+        ShapeDrawingCompleted?.Invoke(this, args);
     }
 
     private void ClearPreview()
