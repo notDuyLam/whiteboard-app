@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using whiteboard_app_data.Enums;
 using whiteboard_app_data.Models;
@@ -17,12 +18,30 @@ public static class DbInitializer
     /// <param name="context">The database context to initialize.</param>
     public static void Initialize(WhiteboardDbContext context)
     {
-        // Check if database has been seeded
-        if (context.Profiles.Any())
+        try
         {
-            return; // Database has been seeded
-        }
+            // Check if database has been seeded
+            if (context.Profiles.Any())
+            {
+                return; // Database has been seeded
+            }
 
+            SeedProfiles(context);
+            SeedCanvases(context);
+            SeedTemplates(context);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Forces seeding of database data, even if profiles already exist.
+    /// Use with caution - this will add duplicate data if profiles already exist.
+    /// </summary>
+    public static void ForceSeed(WhiteboardDbContext context)
+    {
         SeedProfiles(context);
         SeedCanvases(context);
         SeedTemplates(context);
