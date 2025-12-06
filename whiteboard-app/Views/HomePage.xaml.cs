@@ -27,6 +27,9 @@ public sealed partial class HomePage : Page
         DataContext = ViewModel;
         Loaded += HomePage_Loaded;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        
+        // Set initial ItemsSource
+        ProfilesGridView.ItemsSource = ViewModel.Profiles;
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -90,8 +93,15 @@ public sealed partial class HomePage : Page
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            // Navigate to Drawing page will be implemented when DrawingPage is created
-            // _navigationService?.NavigateTo<DrawingPage>(ViewModel.SelectedProfile);
+            // For now, show a message since DrawingPage will be created later
+            var infoDialog = new ContentDialog
+            {
+                Title = "Drawing Page",
+                Content = "Drawing page will be available soon. Please create a canvas first using the 'Create Canvas' button.",
+                CloseButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await infoDialog.ShowAsync();
         }
     }
 
@@ -237,6 +247,7 @@ public sealed partial class HomePage : Page
                 try
                 {
                     await ViewModel.CreateCanvasCommand.ExecuteAsync((canvasName, width, height, backgroundColor));
+                    // Success - dialog will close automatically
                 }
                 catch (Exception ex)
                 {
@@ -252,7 +263,24 @@ public sealed partial class HomePage : Page
             }
         };
 
-        await dialog.ShowAsync();
+        var result = await dialog.ShowAsync();
+        
+        // If dialog was closed with Primary button (Create), show success message
+        if (result == ContentDialogResult.Primary)
+        {
+            var canvasName = canvasNameTextBox.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(canvasName))
+            {
+                var successDialog = new ContentDialog
+                {
+                    Title = "Success",
+                    Content = $"Canvas '{canvasName}' has been created successfully!",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await successDialog.ShowAsync();
+            }
+        }
     }
 }
 

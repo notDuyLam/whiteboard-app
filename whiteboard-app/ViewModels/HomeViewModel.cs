@@ -43,6 +43,9 @@ public partial class HomeViewModel : ObservableObject
             {
                 Profiles.Add(profile);
             }
+            
+            // Force notify property change to ensure UI updates
+            OnPropertyChanged(nameof(Profiles));
         }
         finally
         {
@@ -106,6 +109,7 @@ public partial class HomeViewModel : ObservableObject
         try
         {
             await _dataService.CreateCanvasAsync(newCanvas);
+            // Canvas created successfully
         }
         catch (Exception)
         {
