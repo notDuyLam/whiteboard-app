@@ -544,5 +544,30 @@ public sealed partial class DrawingPage : Page
             SaveNotificationInfoBar.IsOpen = false;
         }
     }
+
+    /// <summary>
+    /// Handles the Save Canvas button click.
+    /// </summary>
+    private async void SaveCanvasButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_currentCanvas == null || _dataService == null)
+        {
+            ShowSaveNotification("No canvas selected", isError: true);
+            return;
+        }
+
+        try
+        {
+            // Update canvas last modified date
+            _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+            await _dataService.UpdateCanvasAsync(_currentCanvas);
+            
+            ShowSaveNotification("Canvas saved successfully");
+        }
+        catch (Exception)
+        {
+            ShowSaveNotification("Failed to save canvas", isError: true);
+        }
+    }
 }
 

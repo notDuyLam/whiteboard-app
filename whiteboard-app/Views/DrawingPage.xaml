@@ -178,6 +178,26 @@
                         Click="DeleteShapeButton_Click"
                         IsEnabled="False"
                         HorizontalAlignment="Stretch" />
+                    
+                    <!-- Canvas Actions -->
+                    <TextBlock
+                        Text="Canvas Actions"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        FontWeight="SemiBold"
+                        Margin="0,12,0,0" />
+                    
+                    <!-- Save Canvas Button -->
+                    <Button
+                        x:Name="SaveCanvasButton"
+                        Content="Save Canvas"
+                        Click="SaveCanvasButton_Click"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE74E;" FontSize="16" />
+                            <TextBlock Text="Save Canvas" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </ScrollViewer>
         </Border>
