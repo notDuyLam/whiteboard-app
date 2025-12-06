@@ -569,5 +569,49 @@ public sealed partial class DrawingPage : Page
             ShowSaveNotification("Failed to save canvas", isError: true);
         }
     }
+
+    /// <summary>
+    /// Handles the Delete Canvas button click event.
+    /// </summary>
+    private async void DeleteCanvasButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_currentCanvas == null || _dataService == null)
+        {
+            ShowSaveNotification("No canvas selected", isError: true);
+            return;
+        }
+
+        try
+        {
+            // Delete canvas from database (cascade delete will handle shapes)
+            bool deleted = await _dataService.DeleteCanvasAsync(_currentCanvas.Id);
+            
+            if (deleted)
+            {
+                // Clear all shapes from the drawing canvas
+                if (DrawingCanvasControl != null)
+                {
+                    DrawingCanvasControl.ClearAllShapes();
+                }
+
+                // Clear current canvas reference
+                _currentCanvas = null;
+                if (DrawingCanvasControl != null)
+                {
+                    DrawingCanvasControl.CanvasModel = null;
+                }
+
+                ShowSaveNotification("Canvas deleted successfully");
+            }
+            else
+            {
+                ShowSaveNotification("Failed to delete canvas", isError: true);
+            }
+        }
+        catch (Exception)
+        {
+            ShowSaveNotification("Failed to delete canvas", isError: true);
+        }
+    }
 }
 

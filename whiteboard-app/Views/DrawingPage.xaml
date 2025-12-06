@@ -189,13 +189,24 @@
                     <!-- Save Canvas Button -->
                     <Button
                         x:Name="SaveCanvasButton"
-                        Content="Save Canvas"
                         Click="SaveCanvasButton_Click"
                         HorizontalAlignment="Stretch"
                         Style="{StaticResource AccentButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE74E;" FontSize="16" />
                             <TextBlock Text="Save Canvas" />
+                        </StackPanel>
+                    </Button>
+                    
+                    <!-- Delete Canvas Button -->
+                    <Button
+                        x:Name="DeleteCanvasButton"
+                        Click="DeleteCanvasButton_Click"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE74D;" FontSize="16" />
+                            <TextBlock Text="Delete Canvas" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

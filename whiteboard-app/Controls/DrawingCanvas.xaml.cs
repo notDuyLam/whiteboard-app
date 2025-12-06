@@ -1434,6 +1434,33 @@ public sealed partial class DrawingCanvas : XamlCanvas
         }
     }
 
+    /// <summary>
+    /// Clears all shapes from the canvas.
+    /// </summary>
+    public void ClearAllShapes()
+    {
+        // Clear selection first
+        ClearSelection();
+
+        // Remove all shapes from canvas
+        var shapesToRemove = new List<XamlShape>();
+        foreach (var child in Children)
+        {
+            if (child is XamlShape shape)
+            {
+                shapesToRemove.Add(shape);
+            }
+        }
+
+        foreach (var shape in shapesToRemove)
+        {
+            Children.Remove(shape);
+        }
+
+        // Clear shape map
+        _shapeMap.Clear();
+    }
+
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
     {
         var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));
