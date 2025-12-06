@@ -1461,6 +1461,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
             Stroke = strokeBrush,
             StrokeThickness = StrokeThickness
         };
+        ApplyStrokeStyle(line);
         return line;
     }
 
@@ -1479,6 +1480,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(rect);
         XamlCanvas.SetLeft(rect, left);
         XamlCanvas.SetTop(rect, top);
         return rect;
@@ -1499,6 +1501,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(ellipse);
         XamlCanvas.SetLeft(ellipse, left);
         XamlCanvas.SetTop(ellipse, top);
         return ellipse;
@@ -1517,6 +1520,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
             StrokeThickness = StrokeThickness,
             Fill = fillBrush
         };
+        ApplyStrokeStyle(ellipse);
         Microsoft.UI.Xaml.Controls.Canvas.SetLeft(ellipse, start.X - radius);
         Microsoft.UI.Xaml.Controls.Canvas.SetTop(ellipse, start.Y - radius);
         return ellipse;
