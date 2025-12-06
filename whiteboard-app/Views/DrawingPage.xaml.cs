@@ -1,0 +1,46 @@
+using Microsoft.UI.Xaml.Controls;
+using whiteboard_app_data.Enums;
+
+namespace whiteboard_app.Views;
+
+/// <summary>
+/// Drawing page with canvas and drawing tools.
+/// </summary>
+public sealed partial class DrawingPage : Page
+{
+    public DrawingPage()
+    {
+        InitializeComponent();
+    }
+
+    private void LineToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        // Set Line as the current drawing tool
+        DrawingCanvasControl.CurrentShapeType = ShapeType.Line;
+        
+        // Update button states (visual feedback)
+        UpdateToolButtonStates(LineToolButton);
+    }
+
+    private void UpdateToolButtonStates(Button? activeButton)
+    {
+        // Reset all tool buttons
+        LineToolButton.Style = null;
+        
+        // Set active button style
+        if (activeButton != null && activeButton.Resources.TryGetValue("AccentButtonStyle", out var accentStyle))
+        {
+            activeButton.Style = accentStyle as Microsoft.UI.Xaml.Style;
+        }
+        else if (activeButton != null)
+        {
+            // Fallback: try Application resources
+            var appResources = Microsoft.UI.Xaml.Application.Current.Resources;
+            if (appResources.TryGetValue("AccentButtonStyle", out var appStyle))
+            {
+                activeButton.Style = appStyle as Microsoft.UI.Xaml.Style;
+            }
+        }
+    }
+}
+
