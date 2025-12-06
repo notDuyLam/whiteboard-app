@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using whiteboard_app.Services;
@@ -57,6 +58,23 @@ public partial class HomeViewModel : ObservableObject
             // Confirmation dialog will be shown in the View
             await Task.CompletedTask;
         }
+    }
+
+    /// <summary>
+    /// Gets the profile settings for the selected profile.
+    /// Returns null if no profile is selected.
+    /// </summary>
+    public Profile? GetSelectedProfileSettings()
+    {
+        return SelectedProfile;
+    }
+
+    /// <summary>
+    /// Loads profile settings by ID.
+    /// </summary>
+    public async Task<Profile?> LoadProfileSettingsAsync(Guid profileId)
+    {
+        return await _dataService.GetProfileByIdAsync(profileId);
     }
 }
 

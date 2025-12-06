@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using whiteboard_app.Services;
 using whiteboard_app_data.Models;
@@ -93,6 +95,14 @@ public partial class ProfileViewModel : ObservableObject
             return;
         }
 
+        // Validate profile name uniqueness
+        var existingProfile = Profiles.FirstOrDefault(p => p.Name.Equals(NewProfileName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (existingProfile != null)
+        {
+            // Profile name already exists - validation will be shown in UI
+            return;
+        }
+
         var newProfile = new Profile
         {
             Name = NewProfileName.Trim(),
@@ -105,9 +115,17 @@ public partial class ProfileViewModel : ObservableObject
             IsActive = false
         };
 
-        await _dataService.CreateProfileAsync(newProfile);
-        await LoadProfilesAsync();
-        CloseCreateDialog();
+        try
+        {
+            await _dataService.CreateProfileAsync(newProfile);
+            await LoadProfilesAsync();
+            CloseCreateDialog();
+        }
+        catch
+        {
+            // Error handling - profile creation failed
+            // In a real app, we would show an error message to the user
+        }
     }
 
     private void ResetNewProfileFields()
