@@ -18,14 +18,26 @@ public sealed partial class DrawingPage : Page
     private void InitializeStrokeSettings()
     {
         // Set default stroke style to Solid
-        StrokeStyleComboBox.SelectedIndex = 0;
+        if (StrokeStyleComboBox != null)
+        {
+            StrokeStyleComboBox.SelectedIndex = 0;
+        }
         
         // Set default stroke color
-        StrokeColorTextBox.Text = "#000000";
+        if (StrokeColorTextBox != null)
+        {
+            StrokeColorTextBox.Text = "#000000";
+        }
         
         // Set default stroke thickness
-        StrokeThicknessSlider.Value = 2;
-        StrokeThicknessTextBlock.Text = "2";
+        if (StrokeThicknessSlider != null)
+        {
+            StrokeThicknessSlider.Value = 2;
+        }
+        if (StrokeThicknessTextBlock != null)
+        {
+            StrokeThicknessTextBlock.Text = "2";
+        }
         
         // Apply initial settings to canvas
         ApplyStrokeSettings();
@@ -33,8 +45,11 @@ public sealed partial class DrawingPage : Page
 
     private void ApplyStrokeSettings()
     {
+        if (DrawingCanvasControl == null)
+            return;
+
         // Apply stroke style
-        if (StrokeStyleComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string styleTag)
+        if (StrokeStyleComboBox?.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string styleTag)
         {
             DrawingCanvasControl.StrokeStyle = styleTag switch
             {
@@ -46,10 +61,16 @@ public sealed partial class DrawingPage : Page
         }
         
         // Apply stroke color
-        DrawingCanvasControl.StrokeColor = StrokeColorTextBox.Text;
+        if (StrokeColorTextBox != null)
+        {
+            DrawingCanvasControl.StrokeColor = StrokeColorTextBox.Text;
+        }
         
         // Apply stroke thickness
-        DrawingCanvasControl.StrokeThickness = StrokeThicknessSlider.Value;
+        if (StrokeThicknessSlider != null)
+        {
+            DrawingCanvasControl.StrokeThickness = StrokeThicknessSlider.Value;
+        }
     }
 
     private void LineToolButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -144,7 +165,10 @@ public sealed partial class DrawingPage : Page
 
     private void StrokeThicknessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        StrokeThicknessTextBlock.Text = ((int)e.NewValue).ToString();
+        if (StrokeThicknessTextBlock != null)
+        {
+            StrokeThicknessTextBlock.Text = ((int)e.NewValue).ToString();
+        }
         ApplyStrokeSettings();
     }
 }
