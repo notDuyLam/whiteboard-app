@@ -139,10 +139,20 @@ public sealed partial class HomePage : Page
         var backgroundColorTextBox = new TextBox
         {
             Header = "Background Color (Hex)",
-            Text = "#FFFFFF",
+            Text = ViewModel.SelectedProfile.DefaultFillColor != "Transparent" 
+                ? ViewModel.SelectedProfile.DefaultFillColor 
+                : "#FFFFFF",
             PlaceholderText = "#FFFFFF"
         };
         stackPanel.Children.Add(backgroundColorTextBox);
+
+        var errorTextBlock = new TextBlock
+        {
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red),
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+            Visibility = Microsoft.UI.Xaml.Visibility.Collapsed
+        };
+        stackPanel.Children.Add(errorTextBlock);
 
         var scrollViewer = new ScrollViewer
         {
@@ -156,31 +166,85 @@ public sealed partial class HomePage : Page
             var deferral = args.GetDeferral();
             try
             {
-                if (string.IsNullOrWhiteSpace(canvasNameTextBox.Text))
+                errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                errorTextBlock.Text = string.Empty;
+
+                var canvasName = canvasNameTextBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(canvasName))
                 {
+                    errorTextBlock.Text = "Canvas name is required.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+
+                if (canvasName.Length > 200)
+                {
+                    errorTextBlock.Text = "Canvas name must be 200 characters or less.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                     args.Cancel = true;
                     return;
                 }
 
                 if (!int.TryParse(widthTextBox.Text, out int width) || width < 100 || width > 10000)
                 {
+                    errorTextBlock.Text = "Width must be a number between 100 and 10000.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                     args.Cancel = true;
                     return;
                 }
 
                 if (!int.TryParse(heightTextBox.Text, out int height) || height < 100 || height > 10000)
                 {
+                    errorTextBlock.Text = "Height must be a number between 100 and 10000.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                     args.Cancel = true;
                     return;
                 }
 
                 var backgroundColor = backgroundColorTextBox.Text.Trim();
-                if (!backgroundColor.StartsWith("#") && backgroundColor != "Transparent")
+                if (backgroundColor == "Transparent")
                 {
-                    backgroundColor = "#" + backgroundColor;
+                    // Transparent is valid
+                }
+                else
+                {
+                    if (!backgroundColor.StartsWith("#"))
+                    {
+                        backgroundColor = "#" + backgroundColor;
+                    }
+
+                    // Validate hex color format: #RRGGBB or #RRGGBBAA
+                    if (backgroundColor.Length != 7 && backgroundColor.Length != 9)
+                    {
+                        errorTextBlock.Text = "Background color must be in hex format (#RRGGBB or #RRGGBBAA) or 'Transparent'.";
+                        errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                        args.Cancel = true;
+                        return;
+                    }
+
+                    // Validate hex characters
+                    var hexPart = backgroundColor.Substring(1);
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(hexPart, @"^[0-9A-Fa-f]+$"))
+                    {
+                        errorTextBlock.Text = "Background color contains invalid hex characters.";
+                        errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                        args.Cancel = true;
+                        return;
+                    }
                 }
 
-                await ViewModel.CreateCanvasCommand.ExecuteAsync((canvasNameTextBox.Text.Trim(), width, height, backgroundColor));
+                try
+                {
+                    await ViewModel.CreateCanvasCommand.ExecuteAsync((canvasName, width, height, backgroundColor));
+                }
+                catch (Exception ex)
+                {
+                    errorTextBlock.Text = $"Failed to create canvas: {ex.Message}";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
             }
             finally
             {
