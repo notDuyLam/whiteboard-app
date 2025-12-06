@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using whiteboard_app.ViewModels;
@@ -17,13 +20,32 @@ public sealed partial class HomePage : Page
     {
         InitializeComponent();
         ViewModel = new HomeViewModel(
-            App.ServiceProvider!.GetService<IDataService>()!,
-            App.ServiceProvider!.GetService<INavigationService>()!
+            App.ServiceProvider!.GetService(typeof(IDataService)) as IDataService ?? throw new InvalidOperationException(),
+            App.ServiceProvider!.GetService(typeof(INavigationService)) as INavigationService ?? throw new InvalidOperationException()
         );
-        _navigationService = App.ServiceProvider!.GetService<INavigationService>();
+        _navigationService = App.ServiceProvider!.GetService(typeof(INavigationService)) as INavigationService;
         DataContext = ViewModel;
         Loaded += HomePage_Loaded;
-        ViewModel.NavigateToDrawingCommand.CanExecuteChanged += (s, e) => { };
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModel.IsLoading))
+        {
+            LoadingProgressRing.IsActive = ViewModel.IsLoading;
+            LoadingProgressRing.Visibility = ViewModel.IsLoading ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+            ProfilesGridView.Visibility = ViewModel.IsLoading ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+        }
+        if (e.PropertyName == nameof(ViewModel.Profiles))
+        {
+            ProfilesGridView.ItemsSource = ViewModel.Profiles;
+        }
+        if (e.PropertyName == nameof(ViewModel.SelectedProfile))
+        {
+            StartDrawingButton.IsEnabled = ViewModel.SelectedProfile != null;
+            ProfilesGridView.SelectedItem = ViewModel.SelectedProfile;
+        }
     }
 
     private async void HomePage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -69,4 +91,5 @@ public sealed partial class HomePage : Page
             // _navigationService?.NavigateTo<DrawingPage>(ViewModel.SelectedProfile);
         }
     }
+}
 

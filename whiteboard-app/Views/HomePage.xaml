@@ -9,9 +9,6 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Page.DataContext>
-        <viewmodels:HomeViewModel x:Name="ViewModel" />
-    </Page.DataContext>
 
     <ScrollViewer>
         <StackPanel Spacing="24" Padding="24">
@@ -36,20 +33,16 @@
                     FontSize="24" />
 
                 <ProgressRing 
-                    IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                    x:Name="LoadingProgressRing"
                     Height="40"
                     Width="40"
-                    HorizontalAlignment="Center"
-                    Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    HorizontalAlignment="Center" />
 
                 <GridView
                     x:Name="ProfilesGridView"
-                    ItemsSource="{x:Bind ViewModel.Profiles, Mode=OneWay}"
-                    SelectedItem="{x:Bind ViewModel.SelectedProfile, Mode=TwoWay}"
                     SelectionMode="Single"
                     IsItemClickEnabled="True"
-                    ItemClick="ProfilesGridView_ItemClick"
-                    Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}">
+                    ItemClick="ProfilesGridView_ItemClick">
                     <GridView.ItemTemplate>
                         <DataTemplate>
                             <Border
@@ -89,7 +82,6 @@
                 <Button
                     x:Name="StartDrawingButton"
                     Click="StartDrawingButton_Click"
-                    IsEnabled="{x:Bind ViewModel.SelectedProfile, Mode=OneWay}"
                     Style="{StaticResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE70F;" FontSize="16" />
