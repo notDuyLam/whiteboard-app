@@ -81,7 +81,7 @@ namespace whiteboard_app
                         _navigationService?.NavigateTo(typeof(Views.DrawingPage));
                         break;
                     case "Management":
-                        _navigationService?.NavigateTo(typeof(Views.ProfilePage));
+                        _navigationService?.NavigateTo(typeof(Views.ManagementPage));
                         break;
                 }
             }

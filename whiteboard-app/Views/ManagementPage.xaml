@@ -1,0 +1,34 @@
+<Page
+    x:Class="whiteboard_app.Views.ManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:whiteboard_app.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- BreadcrumbBar -->
+        <BreadcrumbBar 
+            x:Name="ManagementBreadcrumbBar"
+            Grid.Row="0"
+            ItemClicked="BreadcrumbBar_ItemClicked"
+            Margin="24,16,24,16">
+            <BreadcrumbBar.Items>
+                <BreadcrumbBarItem Content="Management" />
+            </BreadcrumbBar.Items>
+        </BreadcrumbBar>
+
+        <!-- Content Frame for sub-pages -->
+        <Frame 
+            x:Name="ManagementContentFrame"
+            Grid.Row="1" />
+    </Grid>
+</Page>
+
