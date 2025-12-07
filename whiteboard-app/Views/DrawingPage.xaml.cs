@@ -921,16 +921,21 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async void LoadTemplateButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
+        System.Diagnostics.Debug.WriteLine("[DrawingPage] LoadTemplateButton_Click called");
+        
         if (_dataService == null || _drawingService == null || DrawingCanvasControl == null || _currentCanvas == null)
         {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] Missing dependencies, cannot load template");
             ShowSaveNotification("Cannot load template: Canvas not available", isError: true);
             return;
         }
 
         try
         {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] Loading templates...");
             // Load all templates
             var templates = await _dataService.GetAllTemplatesAsync();
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loaded {templates.Count} templates");
 
             if (templates.Count == 0)
             {
@@ -939,13 +944,23 @@ public sealed partial class DrawingPage : Page
             }
 
             // Show dialog with template list
+            var xamlRoot = this.XamlRoot;
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] XamlRoot is null: {xamlRoot == null}");
+            
+            if (xamlRoot == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[DrawingPage] XamlRoot is null, cannot show dialog");
+                ShowSaveNotification("Cannot show dialog: XamlRoot is not available", isError: true);
+                return;
+            }
+            
             var dialog = new ContentDialog
             {
                 Title = "Load Template to Canvas",
                 PrimaryButtonText = "Load",
                 SecondaryButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = XamlRoot,
+                XamlRoot = xamlRoot,
                 MaxWidth = 600
             };
 
@@ -1014,6 +1029,7 @@ public sealed partial class DrawingPage : Page
             scrollViewer.Content = stackPanel;
             dialog.Content = scrollViewer;
 
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] Dialog created, about to show...");
             dialog.PrimaryButtonClick += async (s, args) =>
             {
                 var deferral = args.GetDeferral();
@@ -1067,10 +1083,18 @@ public sealed partial class DrawingPage : Page
                 }
             };
 
-            await dialog.ShowAsync();
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] Calling dialog.ShowAsync()...");
+            var result = await dialog.ShowAsync();
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Dialog closed with result: {result}");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Exception in LoadTemplateButton_Click: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] StackTrace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] InnerException: {ex.InnerException.Message}");
+            }
             ShowSaveNotification($"Failed to load templates: {ex.Message}", isError: true);
         }
     }
