@@ -5,6 +5,7 @@
     xmlns:local="using:whiteboard_app.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:lvc="using:LiveChartsCore.SkiaSharpView.WinUI"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
@@ -18,17 +19,181 @@
         <BreadcrumbBar 
             x:Name="ManagementBreadcrumbBar"
             Grid.Row="0"
-            ItemClicked="BreadcrumbBar_ItemClicked"
-            Margin="24,16,24,16">
-            <BreadcrumbBar.Items>
-                <BreadcrumbBarItem Content="Management" />
-            </BreadcrumbBar.Items>
-        </BreadcrumbBar>
+            Margin="24,16,24,16" />
 
-        <!-- Content Frame for sub-pages -->
-        <Frame 
-            x:Name="ManagementContentFrame"
-            Grid.Row="1" />
+        <!-- Dashboard View -->
+        <ScrollViewer 
+            Grid.Row="1"
+            Padding="24">
+            <StackPanel Spacing="24">
+                <!-- Header -->
+                <TextBlock 
+                    Text="Dashboard"
+                    FontSize="36"
+                    FontWeight="Bold" />
+
+                <!-- Summary Cards -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Total Profiles Card -->
+                    <Border
+                        Grid.Column="0"
+                        Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                        BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20"
+                        Margin="0,0,12,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                Text="Total Profiles"
+                                FontSize="14"
+                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                            <TextBlock
+                                x:Name="TotalProfilesTextBlock"
+                                Text="0"
+                                FontSize="32"
+                                FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Total Canvases Card -->
+                    <Border
+                        Grid.Column="1"
+                        Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                        BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20"
+                        Margin="6,0,6,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                Text="Total Canvases"
+                                FontSize="14"
+                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                            <TextBlock
+                                x:Name="TotalCanvasesTextBlock"
+                                Text="0"
+                                FontSize="32"
+                                FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Total Shapes Card -->
+                    <Border
+                        Grid.Column="2"
+                        Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                        BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20"
+                        Margin="6,0,6,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                Text="Total Shapes"
+                                FontSize="14"
+                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                            <TextBlock
+                                x:Name="TotalShapesTextBlock"
+                                Text="0"
+                                FontSize="32"
+                                FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Total Templates Card -->
+                    <Border
+                        Grid.Column="3"
+                        Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                        BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="20"
+                        Margin="12,0,0,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                Text="Total Templates"
+                                FontSize="14"
+                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                            <TextBlock
+                                x:Name="TotalTemplatesTextBlock"
+                                Text="0"
+                                FontSize="32"
+                                FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Statistics Charts Section -->
+                <StackPanel Spacing="24">
+                    <TextBlock 
+                        Text="Statistics"
+                        FontSize="24"
+                        FontWeight="SemiBold" />
+
+                    <!-- Charts Grid -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Shape Type Distribution Chart (Pie Chart) -->
+                        <Border
+                            Grid.Column="0"
+                            Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                            BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20"
+                            Margin="0,0,12,0">
+                            <StackPanel Spacing="12">
+                                <TextBlock
+                                    Text="Shape Type Distribution"
+                                    FontSize="18"
+                                    FontWeight="SemiBold" />
+                                <lvc:PieChart
+                                    x:Name="ShapeTypePieChart"
+                                    Height="300" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Top Templates Chart (Column Chart) -->
+                        <Border
+                            Grid.Column="1"
+                            Background="{ThemeResource SystemControlAcrylicElementBrush}"
+                            BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="20"
+                            Margin="12,0,0,0">
+                            <StackPanel Spacing="12">
+                                <TextBlock
+                                    Text="Top Templates"
+                                    FontSize="18"
+                                    FontWeight="SemiBold" />
+                                <lvc:CartesianChart
+                                    x:Name="TopTemplatesChart"
+                                    Height="300" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Loading Indicator -->
+                <ProgressRing 
+                    x:Name="DashboardLoadingProgressRing"
+                    Height="40"
+                    Width="40"
+                    HorizontalAlignment="Center"
+                    Visibility="Collapsed" />
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Page>
-

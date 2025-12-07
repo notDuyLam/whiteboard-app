@@ -33,6 +33,11 @@ public interface IDataService
     Task<Shape> CreateShapeAsync(Shape shape);
     Task<Shape> UpdateShapeAsync(Shape shape);
     Task<bool> DeleteShapeAsync(Guid id);
+    
+    // Statistics operations (use raw SQL to avoid discriminator issues)
+    Task<int> GetTotalShapesCountAsync();
+    Task<Dictionary<whiteboard_app_data.Enums.ShapeType, int>> GetShapeTypeStatisticsAsync();
+    Task<List<(string TemplateName, int UsageCount)>> GetTopTemplatesAsync(int topCount = 10);
 
     // Save changes
     Task<int> SaveChangesAsync();

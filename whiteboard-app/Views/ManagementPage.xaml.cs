@@ -1,104 +1,358 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
+using SkiaSharp;
 using whiteboard_app.Services;
+using whiteboard_app_data.Enums;
 
 namespace whiteboard_app.Views;
 
 /// <summary>
-/// Management page with BreadcrumbBar navigation to Canvas Manager and Dashboard.
+/// Management page - Step 1: BreadcrumbBar and Dashboard UI (no data loading yet).
 /// </summary>
 public sealed partial class ManagementPage : Page
 {
+    private IDataService? _dataService;
     private INavigationService? _navigationService;
+    
+    // Chart data
+    public ISeries[] ShapeTypeSeries { get; set; } = Array.Empty<ISeries>();
+    public ISeries[] TopTemplatesSeries { get; set; } = Array.Empty<ISeries>();
+    public Axis[] XAxis { get; set; } = Array.Empty<Axis>();
 
     public ManagementPage()
     {
-        InitializeComponent();
-        Loaded += ManagementPage_Loaded;
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] Constructor - START");
+        
+        try
+        {
+            InitializeComponent();
+            
+            // Get services
+            _dataService = App.ServiceProvider?.GetService(typeof(IDataService)) as IDataService;
+            _navigationService = App.ServiceProvider?.GetService(typeof(INavigationService)) as INavigationService;
+            
+            // Subscribe to Loaded event - update BreadcrumbBar AFTER page is fully rendered
+            Loaded += ManagementPage_Loaded;
+            
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Constructor - DataService null: {_dataService == null}");
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Constructor - NavigationService null: {_navigationService == null}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Constructor error: {ex.Message}\n{ex.StackTrace}");
+            throw;
+        }
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] Constructor - END");
     }
 
     private void ManagementPage_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        // Get navigation service
-        _navigationService = App.ServiceProvider?.GetService(typeof(INavigationService)) as INavigationService;
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] Loaded event - START");
         
-        // Set up frame navigation
-        if (_navigationService != null)
+        try
         {
-            _navigationService.SetNavigationFrame(ManagementContentFrame);
+            // Update BreadcrumbBar AFTER page is fully rendered
+            UpdateBreadcrumb("Dashboard");
+            
+            // Load dashboard data asynchronously (fire-and-forget)
+            _ = LoadDashboardDataAsync();
         }
-
-        // Navigate to Dashboard by default
-        NavigateToDashboard();
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded event error: {ex.Message}\n{ex.StackTrace}");
+        }
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] Loaded event - END");
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] OnNavigatedTo - START");
         base.OnNavigatedTo(e);
         
-        // If parameter is provided, navigate to specific page
-        if (e.Parameter is string pageName)
-        {
-            switch (pageName.ToLower())
-            {
-                case "dashboard":
-                    NavigateToDashboard();
-                    break;
-                case "canvasmanager":
-                case "canvas":
-                    NavigateToCanvasManager();
-                    break;
-                default:
-                    NavigateToDashboard();
-                    break;
-            }
-        }
-        else
-        {
-            NavigateToDashboard();
-        }
-    }
-
-    public void NavigateToDashboard()
-    {
-        UpdateBreadcrumb("Dashboard");
-        ManagementContentFrame.Navigate(typeof(DashboardPage));
-    }
-
-    public void NavigateToCanvasManager()
-    {
-        UpdateBreadcrumb("Canvas Manager");
-        ManagementContentFrame.Navigate(typeof(CanvasManagerPage));
+        // DON'T update BreadcrumbBar here - wait for Loaded event
+        // This prevents freeze/crash during navigation
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] OnNavigatedTo - END");
     }
 
     private void UpdateBreadcrumb(string currentPage)
     {
-        ManagementBreadcrumbBar.Items.Clear();
-        ManagementBreadcrumbBar.Items.Add(new BreadcrumbBarItem { Content = "Management" });
-        if (!string.IsNullOrEmpty(currentPage))
+        System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateBreadcrumb - currentPage={currentPage}");
+        
+        try
         {
-            ManagementBreadcrumbBar.Items.Add(new BreadcrumbBarItem { Content = currentPage });
+            // Check if BreadcrumbBar is initialized
+            if (ManagementBreadcrumbBar == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[ManagementPage] UpdateBreadcrumb - BreadcrumbBar is null!");
+                return;
+            }
+            
+            // Use simple strings instead of BreadcrumbBarItem to avoid XamlRoot context issues
+            // BreadcrumbBar in WinUI 3 can accept IEnumerable<string> directly
+            var items = new List<string> { "Management" };
+            
+            if (!string.IsNullOrEmpty(currentPage))
+            {
+                items.Add(currentPage);
+            }
+            
+            ManagementBreadcrumbBar.ItemsSource = items;
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateBreadcrumb - ItemsSource set successfully (count: {items.Count})");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateBreadcrumb error: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
-    private void BreadcrumbBar_ItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    // ==================== DASHBOARD DATA LOADING ====================
+    
+    private async Task LoadDashboardDataAsync()
     {
-        if (args.Item is BreadcrumbBarItem item)
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] LoadDashboardDataAsync - START");
+        
+        if (_dataService == null)
         {
-            var content = item.Content?.ToString();
-            if (content == "Management")
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] DataService is null");
+            return;
+        }
+
+        try
+        {
+            // Show loading indicator
+            if (DashboardLoadingProgressRing != null)
             {
-                NavigateToDashboard();
+                DashboardLoadingProgressRing.Visibility = Visibility.Visible;
+                DashboardLoadingProgressRing.IsActive = true;
             }
-            else if (content == "Dashboard")
+
+            // Load data
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading profiles...");
+            var profiles = await _dataService.GetAllProfilesAsync();
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded {profiles.Count} profiles");
+            
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading templates...");
+            var templates = await _dataService.GetAllTemplatesAsync();
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded {templates.Count} templates");
+            
+            int totalCanvases = 0;
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] Counting canvases...");
+            foreach (var profile in profiles)
             {
-                NavigateToDashboard();
+                var canvases = await _dataService.GetCanvasesByProfileIdAsync(profile.Id);
+                totalCanvases += canvases.Count;
             }
-            else if (content == "Canvas Manager")
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Total canvases: {totalCanvases}");
+            
+            int totalShapes = 0;
+            try
             {
-                NavigateToCanvasManager();
+                System.Diagnostics.Debug.WriteLine("[ManagementPage] Counting shapes...");
+                totalShapes = await _dataService.GetTotalShapesCountAsync();
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Total shapes: {totalShapes}");
             }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Error counting shapes: {ex.Message}");
+            }
+
+            // Load statistics for charts
+            Dictionary<ShapeType, int> shapeTypeStats = new();
+            List<(string TemplateName, int UsageCount)> topTemplates = new();
+            
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading shape type statistics...");
+                shapeTypeStats = await _dataService.GetShapeTypeStatisticsAsync();
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded shape type statistics: {shapeTypeStats.Count} types");
+                
+                System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading top templates...");
+                topTemplates = await _dataService.GetTopTemplatesAsync(10);
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded {topTemplates.Count} top templates");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Error loading statistics: {ex.Message}");
+            }
+
+            // Update UI on UI thread
+            if (TotalProfilesTextBlock != null)
+                TotalProfilesTextBlock.Text = profiles.Count.ToString();
+            if (TotalCanvasesTextBlock != null)
+                TotalCanvasesTextBlock.Text = totalCanvases.ToString();
+            if (TotalShapesTextBlock != null)
+                TotalShapesTextBlock.Text = totalShapes.ToString();
+            if (TotalTemplatesTextBlock != null)
+                TotalTemplatesTextBlock.Text = templates.Count.ToString();
+            
+            // Update charts on UI thread
+            if (DispatcherQueue != null)
+            {
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () =>
+                {
+                    UpdateShapeTypeChart(shapeTypeStats);
+                    UpdateTopTemplatesChart(topTemplates);
+                });
+            }
+            else
+            {
+                // Fallback: update directly if DispatcherQueue is not available
+                UpdateShapeTypeChart(shapeTypeStats);
+                UpdateTopTemplatesChart(topTemplates);
+            }
+            
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] UI updated successfully");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Error loading dashboard: {ex.Message}\n{ex.StackTrace}");
+            
+            // Show error values
+            if (TotalProfilesTextBlock != null)
+                TotalProfilesTextBlock.Text = "?";
+            if (TotalCanvasesTextBlock != null)
+                TotalCanvasesTextBlock.Text = "?";
+            if (TotalShapesTextBlock != null)
+                TotalShapesTextBlock.Text = "?";
+            if (TotalTemplatesTextBlock != null)
+                TotalTemplatesTextBlock.Text = "?";
+        }
+        finally
+        {
+            // Hide loading indicator
+            if (DashboardLoadingProgressRing != null)
+            {
+                DashboardLoadingProgressRing.Visibility = Visibility.Collapsed;
+                DashboardLoadingProgressRing.IsActive = false;
+            }
+        }
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] LoadDashboardDataAsync - END");
+    }
+
+    private void UpdateShapeTypeChart(Dictionary<ShapeType, int> statistics)
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] UpdateShapeTypeChart - START");
+            
+            var total = statistics.Values.Sum();
+            if (total == 0)
+            {
+                ShapeTypeSeries = Array.Empty<ISeries>();
+                return;
+            }
+
+            var colors = new[]
+            {
+                new SolidColorPaint(SKColors.Blue),
+                new SolidColorPaint(SKColors.Green),
+                new SolidColorPaint(SKColors.Orange),
+                new SolidColorPaint(SKColors.Red),
+                new SolidColorPaint(SKColors.Purple),
+                new SolidColorPaint(SKColors.Teal)
+            };
+
+            var series = new List<ISeries>();
+            int colorIndex = 0;
+            
+            foreach (var kvp in statistics.OrderByDescending(x => x.Value))
+            {
+                if (kvp.Value > 0)
+                {
+                    var shapeTypeName = kvp.Key.ToString();
+                    var percentage = (double)kvp.Value / total * 100;
+                    
+                    series.Add(new PieSeries<double>
+                    {
+                        Name = $"{shapeTypeName} ({kvp.Value})",
+                        Values = new[] { (double)kvp.Value },
+                        Fill = colors[colorIndex % colors.Length]
+                    });
+                    
+                    colorIndex++;
+                }
+            }
+            
+            ShapeTypeSeries = series.ToArray();
+            
+            // Update chart control
+            if (ShapeTypePieChart != null)
+            {
+                ShapeTypePieChart.Series = ShapeTypeSeries;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateShapeTypeChart - SUCCESS: {series.Count} series");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateShapeTypeChart - ERROR: {ex.Message}\n{ex.StackTrace}");
+            ShapeTypeSeries = Array.Empty<ISeries>();
+        }
+    }
+
+    private void UpdateTopTemplatesChart(List<(string TemplateName, int UsageCount)> templates)
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] UpdateTopTemplatesChart - START");
+            
+            if (templates == null || templates.Count == 0)
+            {
+                TopTemplatesSeries = Array.Empty<ISeries>();
+                XAxis = Array.Empty<Axis>();
+                return;
+            }
+
+            var values = templates.Select(t => (double)t.UsageCount).ToArray();
+            var labels = templates.Select(t => t.TemplateName).ToArray();
+
+            TopTemplatesSeries = new ISeries[]
+            {
+                new ColumnSeries<double>
+                {
+                    Values = values,
+                    Fill = new SolidColorPaint(SKColors.CornflowerBlue),
+                    Name = "Usage Count"
+                }
+            };
+
+            XAxis = new Axis[]
+            {
+                new Axis
+                {
+                    Labels = labels,
+                    LabelsRotation = 45,
+                    TextSize = 12
+                }
+            };
+            
+            // Update chart control
+            if (TopTemplatesChart != null)
+            {
+                TopTemplatesChart.Series = TopTemplatesSeries;
+                TopTemplatesChart.XAxes = XAxis;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateTopTemplatesChart - SUCCESS: {templates.Count} templates");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateTopTemplatesChart - ERROR: {ex.Message}\n{ex.StackTrace}");
+            TopTemplatesSeries = Array.Empty<ISeries>();
+            XAxis = Array.Empty<Axis>();
         }
     }
 }
-
