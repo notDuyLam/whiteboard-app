@@ -565,6 +565,9 @@ public sealed partial class DrawingPage : Page
                 args.FillColor,
                 serializedData
             );
+            
+            // Set StrokeStyle from event args
+            shape.StrokeStyle = args.StrokeStyle;
 
             await _dataService.CreateShapeAsync(shape);
             
@@ -776,22 +779,42 @@ public sealed partial class DrawingPage : Page
                     return;
                 }
 
+                // Get selected shape model
+                var selectedShapeModel = DrawingCanvasControl.GetSelectedShapeModel();
+                if (selectedShapeModel == null)
+                {
+                    errorTextBlock.Text = "No shape selected.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+                
+                // Get selected shape properties including stroke style
+                var selectedXamlShape = DrawingCanvasControl.SelectedShape;
+                if (selectedXamlShape == null)
+                {
+                    errorTextBlock.Text = "No shape selected.";
+                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                    args.Cancel = true;
+                    return;
+                }
+                
+                // Get stroke style from selected shape model (preferred) or from properties
+                var strokeStyle = selectedShapeModel.StrokeStyle;
+                if (strokeStyle == whiteboard_app_data.Enums.StrokeStyle.Solid && selectedShapeModel.StrokeStyle == 0)
+                {
+                    // Fallback to getting from shape properties
+                    var shapeProperties = DrawingCanvasControl.GetSelectedShapeProperties();
+                    strokeStyle = shapeProperties.StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid;
+                }
+                
                 // Get or create serialized data from selected shape
                 string serializedData = selectedShapeModel.SerializedData;
                 
                 // If SerializedData is empty, create it from the selected XamlShape
                 if (string.IsNullOrWhiteSpace(serializedData))
                 {
-                    var selectedXamlShape = DrawingCanvasControl.SelectedShape;
-                    if (selectedXamlShape == null)
-                    {
-                        errorTextBlock.Text = "No shape selected.";
-                        errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-                        args.Cancel = true;
-                        return;
-                    }
-                    
-                    // Serialize shape data based on type
+                    // Serialize shape data based on type - use selectedShapeModel.ShapeType, not XamlShape type
                     serializedData = selectedShapeModel.ShapeType switch
                     {
                         ShapeType.Line when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Line line =>
@@ -867,15 +890,10 @@ public sealed partial class DrawingPage : Page
                 templateShape.IsTemplate = true;
                 templateShape.TemplateName = templateName.Trim();
                 templateShape.CanvasId = null; // Templates are not associated with any canvas
-
-                // Log before saving - add to error message for debugging
-                var debugInfo = $"Type={templateShape.ShapeType}, IsTemplate={templateShape.IsTemplate}, IsShapeConcrete={templateShape is whiteboard_app_data.Models.ShapeConcrete}";
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] About to save template: {debugInfo}");
+                templateShape.StrokeStyle = strokeStyle; // Save stroke style
                 
                 // Save template to database
                 await _dataService.CreateShapeAsync(templateShape);
-                
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] Template saved successfully");
             }
             catch (Exception ex)
             {
@@ -894,10 +912,6 @@ public sealed partial class DrawingPage : Page
                 {
                     errorMessage += $"\n\nFull Exception Details:\n{ex}";
                 }
-                
-                // Also log to debug output
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] ERROR: {errorMessage}");
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] StackTrace: {ex.StackTrace}");
                 
                 errorTextBlock.Text = errorMessage;
                 errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
@@ -921,21 +935,28 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async void LoadTemplateButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine("[DrawingPage] LoadTemplateButton_Click called");
-        
-        if (_dataService == null || _drawingService == null || DrawingCanvasControl == null || _currentCanvas == null)
+        if (_dataService == null)
         {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] Missing dependencies, cannot load template");
-            ShowSaveNotification("Cannot load template: Canvas not available", isError: true);
+            ShowSaveNotification("Cannot load template: Data service not available", isError: true);
+            return;
+        }
+        
+        if (_drawingService == null)
+        {
+            ShowSaveNotification("Cannot load template: Drawing service not available", isError: true);
+            return;
+        }
+        
+        if (DrawingCanvasControl == null)
+        {
+            ShowSaveNotification("Cannot load template: Drawing canvas not available", isError: true);
             return;
         }
 
         try
         {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] Loading templates...");
             // Load all templates
             var templates = await _dataService.GetAllTemplatesAsync();
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loaded {templates.Count} templates");
 
             if (templates.Count == 0)
             {
@@ -945,11 +966,9 @@ public sealed partial class DrawingPage : Page
 
             // Show dialog with template list
             var xamlRoot = this.XamlRoot;
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] XamlRoot is null: {xamlRoot == null}");
             
             if (xamlRoot == null)
             {
-                System.Diagnostics.Debug.WriteLine("[DrawingPage] XamlRoot is null, cannot show dialog");
                 ShowSaveNotification("Cannot show dialog: XamlRoot is not available", isError: true);
                 return;
             }
@@ -1029,7 +1048,6 @@ public sealed partial class DrawingPage : Page
             scrollViewer.Content = stackPanel;
             dialog.Content = scrollViewer;
 
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] Dialog created, about to show...");
             dialog.PrimaryButtonClick += async (s, args) =>
             {
                 var deferral = args.GetDeferral();
@@ -1043,34 +1061,125 @@ public sealed partial class DrawingPage : Page
                     }
 
                     // Render template shape on canvas at center position
-                    var canvasWidth = DrawingCanvasControl.ActualWidth > 0 ? DrawingCanvasControl.ActualWidth : _currentCanvas.Width;
-                    var canvasHeight = DrawingCanvasControl.ActualHeight > 0 ? DrawingCanvasControl.ActualHeight : _currentCanvas.Height;
-                    var offsetX = Math.Max(0, (canvasWidth - 200) / 2);
-                    var offsetY = Math.Max(0, (canvasHeight - 200) / 2);
+                    // For Line and Polygon, we need to calculate offset based on the shape's bounding box
+                    var canvasWidth = DrawingCanvasControl.ActualWidth > 0 ? DrawingCanvasControl.ActualWidth : (_currentCanvas?.Width ?? 800);
+                    var canvasHeight = DrawingCanvasControl.ActualHeight > 0 ? DrawingCanvasControl.ActualHeight : (_currentCanvas?.Height ?? 600);
+                    
+                    // Calculate offset to center the shape
+                    // For Line and Polygon, we'll use a default offset to center them
+                    double offsetX = 0;
+                    double offsetY = 0;
+                    
+                    // Try to deserialize to get shape bounds
+                    try
+                    {
+                        if (selectedTemplate.ShapeType == ShapeType.Line)
+                        {
+                            var lineData = _drawingService.DeserializeShapeData<LineShapeData>(selectedTemplate.SerializedData);
+                            if (lineData != null)
+                            {
+                                // Calculate bounding box
+                                var minX = Math.Min(lineData.StartX, lineData.EndX);
+                                var minY = Math.Min(lineData.StartY, lineData.EndY);
+                                var maxX = Math.Max(lineData.StartX, lineData.EndX);
+                                var maxY = Math.Max(lineData.StartY, lineData.EndY);
+                                var shapeWidth = maxX - minX;
+                                var shapeHeight = maxY - minY;
+                                
+                                // Center the shape - ensure offset is reasonable
+                                offsetX = Math.Max(0, (canvasWidth - shapeWidth) / 2 - minX);
+                                offsetY = Math.Max(0, (canvasHeight - shapeHeight) / 2 - minY);
+                                
+                                // If line is too small or coordinates are negative, use default center
+                                if (shapeWidth < 10 || shapeHeight < 10 || minX < 0 || minY < 0)
+                                {
+                                    offsetX = Math.Max(0, (canvasWidth - 200) / 2);
+                                    offsetY = Math.Max(0, (canvasHeight - 200) / 2);
+                                }
+                            }
+                        }
+                        else if (selectedTemplate.ShapeType == ShapeType.Polygon)
+                        {
+                            var polygonData = _drawingService.DeserializeShapeData<PolygonShapeData>(selectedTemplate.SerializedData);
+                            if (polygonData != null && polygonData.Points != null && polygonData.Points.Count > 0)
+                            {
+                                // Calculate bounding box
+                                var minX = polygonData.Points.Min(p => p.X);
+                                var minY = polygonData.Points.Min(p => p.Y);
+                                var maxX = polygonData.Points.Max(p => p.X);
+                                var maxY = polygonData.Points.Max(p => p.Y);
+                                var shapeWidth = maxX - minX;
+                                var shapeHeight = maxY - minY;
+                                
+                                // Center the shape
+                                offsetX = (canvasWidth - shapeWidth) / 2 - minX;
+                                offsetY = (canvasHeight - shapeHeight) / 2 - minY;
+                            }
+                        }
+                        else if (selectedTemplate.ShapeType == ShapeType.Oval)
+                        {
+                            var ovalData = _drawingService.DeserializeShapeData<OvalShapeData>(selectedTemplate.SerializedData);
+                            if (ovalData != null)
+                            {
+                                // Calculate bounding box for oval
+                                var minX = ovalData.CenterX - ovalData.RadiusX;
+                                var minY = ovalData.CenterY - ovalData.RadiusY;
+                                var maxX = ovalData.CenterX + ovalData.RadiusX;
+                                var maxY = ovalData.CenterY + ovalData.RadiusY;
+                                var shapeWidth = maxX - minX;
+                                var shapeHeight = maxY - minY;
+                                
+                                // Center the shape
+                                offsetX = (canvasWidth - shapeWidth) / 2 - minX;
+                                offsetY = (canvasHeight - shapeHeight) / 2 - minY;
+                            }
+                        }
+                        else
+                        {
+                            // For other shapes, use default center offset
+                            offsetX = Math.Max(0, (canvasWidth - 200) / 2);
+                            offsetY = Math.Max(0, (canvasHeight - 200) / 2);
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback to default offset
+                        offsetX = Math.Max(0, (canvasWidth - 200) / 2);
+                        offsetY = Math.Max(0, (canvasHeight - 200) / 2);
+                    }
 
                     // Render template shape on canvas
                     DrawingCanvasControl.RenderTemplateShape(selectedTemplate, _drawingService, offsetX, offsetY);
 
-                    // Create shape entity to save to database
-                    // The RenderTemplateShape method renders the shape visually,
-                    // but we need to save it to database separately
-                    var shapeEntity = _drawingService.CreateShape(
-                        selectedTemplate.ShapeType,
-                        _currentCanvas.Id,
-                        selectedTemplate.StrokeColor,
-                        selectedTemplate.StrokeThickness,
-                        selectedTemplate.FillColor,
-                        selectedTemplate.SerializedData
-                    );
+                    // Only save to database if we have a canvas
+                    if (_currentCanvas != null)
+                    {
+                        // Create shape entity to save to database
+                        // The RenderTemplateShape method renders the shape visually,
+                        // but we need to save it to database separately
+                        var shapeEntity = _drawingService.CreateShape(
+                            selectedTemplate.ShapeType,
+                            _currentCanvas.Id,
+                            selectedTemplate.StrokeColor,
+                            selectedTemplate.StrokeThickness,
+                            selectedTemplate.FillColor,
+                            selectedTemplate.SerializedData
+                        );
 
-                    // Save to database
-                    await _dataService.CreateShapeAsync(shapeEntity);
+                        // Save to database
+                        await _dataService.CreateShapeAsync(shapeEntity);
 
-                    // Update canvas last modified date
-                    _currentCanvas.LastModifiedDate = DateTime.UtcNow;
-                    await _dataService.UpdateCanvasAsync(_currentCanvas);
+                        // Update canvas last modified date
+                        _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+                        await _dataService.UpdateCanvasAsync(_currentCanvas);
+                        
+                        ShowSaveNotification($"Template '{selectedTemplate.TemplateName}' loaded and saved successfully");
+                    }
+                    else
+                    {
+                        ShowSaveNotification($"Template '{selectedTemplate.TemplateName}' loaded (not saved - no canvas)");
+                    }
 
-                    ShowSaveNotification($"Template '{selectedTemplate.TemplateName}' loaded successfully");
                 }
                 catch (Exception ex)
                 {
@@ -1083,18 +1192,10 @@ public sealed partial class DrawingPage : Page
                 }
             };
 
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] Calling dialog.ShowAsync()...");
             var result = await dialog.ShowAsync();
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Dialog closed with result: {result}");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Exception in LoadTemplateButton_Click: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] StackTrace: {ex.StackTrace}");
-            if (ex.InnerException != null)
-            {
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] InnerException: {ex.InnerException.Message}");
-            }
             ShowSaveNotification($"Failed to load templates: {ex.Message}", isError: true);
         }
     }
@@ -1113,9 +1214,7 @@ public sealed partial class DrawingPage : Page
         try
         {
             // Load all templates
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loading templates...");
             var templates = await _dataService.GetAllTemplatesAsync();
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loaded {templates.Count} templates");
 
             // Show dialog with template list
             var dialog = new ContentDialog

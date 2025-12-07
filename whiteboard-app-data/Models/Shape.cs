@@ -43,6 +43,11 @@ public abstract class Shape
     public string FillColor { get; set; } = "Transparent";
 
     /// <summary>
+    /// Gets or sets the stroke style (Solid, Dash, Dot).
+    /// </summary>
+    public StrokeStyle StrokeStyle { get; set; } = StrokeStyle.Solid;
+
+    /// <summary>
     /// Gets or sets a value indicating whether this shape is saved as a template.
     /// </summary>
     public bool IsTemplate { get; set; } = false;

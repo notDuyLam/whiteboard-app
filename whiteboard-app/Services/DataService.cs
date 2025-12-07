@@ -149,30 +149,40 @@ public class DataService : IDataService
             // This ensures EF Core materializes entities correctly
             var templates = await _context.ShapeConcretes
                 .Where(s => s.IsTemplate && s.TemplateName != null)
-                .OrderBy(s => s.TemplateName)
-                .Cast<Shape>()
+                .OrderByDescending(s => s.CreatedDate) // Sort by creation date, newest first
                 .ToListAsync();
             
-            System.Diagnostics.Debug.WriteLine($"[DataService] Found {templates.Count} templates");
-            return templates;
+            // Fix incorrect ShapeType for Line templates that were saved as Polygon
+            foreach (var template in templates)
+            {
+                if (!string.IsNullOrEmpty(template.SerializedData))
+                {
+                    if (template.SerializedData.Contains("startX") && template.SerializedData.Contains("endX"))
+                    {
+                        // Fix the ShapeType if it's wrong
+                        if (template.ShapeType != whiteboard_app_data.Enums.ShapeType.Line)
+                        {
+                            template.ShapeType = whiteboard_app_data.Enums.ShapeType.Line;
+                            _context.Shapes.Update(template);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+                }
+            }
+            return templates.Cast<Shape>().ToList();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DataService] Error in GetAllTemplatesAsync: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"[DataService] Inner: {ex.InnerException?.Message}");
-            System.Diagnostics.Debug.WriteLine($"[DataService] StackTrace: {ex.StackTrace}");
-            
             // Only clean up if there's a discriminator error
             if (ex.Message.Contains("discriminator", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
                     await _context.Database.ExecuteSqlRawAsync("DELETE FROM Shapes WHERE IsTemplate = 1");
-                    System.Diagnostics.Debug.WriteLine($"[DataService] Deleted all templates due to discriminator error");
                 }
-                catch (Exception cleanupEx)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine($"[DataService] Cleanup error: {cleanupEx.Message}");
+                    // Ignore cleanup errors
                 }
             }
             
@@ -192,38 +202,27 @@ public class DataService : IDataService
             shape.Id = Guid.NewGuid();
             shape.CreatedDate = DateTime.UtcNow;
 
-            // Log shape details before saving
-            var shapeType = shape.GetType().Name;
-            var isShapeConcrete = shape is ShapeConcrete;
-            System.Diagnostics.Debug.WriteLine($"[DataService] Creating shape: Type={shape.ShapeType}, ShapeType={shapeType}, IsTemplate={shape.IsTemplate}, TemplateName={shape.TemplateName}, IsShapeConcrete={isShapeConcrete}");
-            
             // Check if shape is actually ShapeConcrete
+            var isShapeConcrete = shape is ShapeConcrete;
             if (!isShapeConcrete)
             {
-                throw new InvalidOperationException($"Shape must be ShapeConcrete, but got {shapeType}");
+                throw new InvalidOperationException($"Shape must be ShapeConcrete, but got {shape.GetType().Name}");
+            }
+            
+            // Ensure ShapeType is explicitly set before adding to context
+            // This is critical for EF Core discriminator mapping
+            if (shape is ShapeConcrete concrete)
+            {
+                concrete.ShapeType = shape.ShapeType;
             }
             
             _context.Shapes.Add(shape);
-            System.Diagnostics.Debug.WriteLine($"[DataService] Shape added to context, about to save changes...");
-            
             await _context.SaveChangesAsync();
             
-            System.Diagnostics.Debug.WriteLine($"[DataService] Shape created successfully with Id: {shape.Id}");
             return shape;
         }
         catch (Exception ex)
         {
-            var errorDetails = $"[DataService] Error creating shape: {ex.Message}";
-            if (ex.InnerException != null)
-            {
-                errorDetails += $"\nInner: {ex.InnerException.Message}";
-            }
-            errorDetails += $"\nType: {ex.GetType().Name}";
-            errorDetails += $"\nStackTrace: {ex.StackTrace}";
-            
-            System.Diagnostics.Debug.WriteLine(errorDetails);
-            System.Console.WriteLine(errorDetails); // Also write to console
-            
             throw;
         }
     }

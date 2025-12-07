@@ -599,7 +599,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             EndPoint = endPoint,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
 
         ShapeDrawingCompleted?.Invoke(this, args);
@@ -630,7 +631,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Line,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[line] = shapeEntity;
     }
@@ -670,7 +672,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Rectangle,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[rect] = shapeEntity;
     }
@@ -710,7 +713,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Oval,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[ellipse] = shapeEntity;
     }
@@ -750,7 +754,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Circle,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[ellipse] = shapeEntity;
     }
@@ -883,7 +888,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Polygon,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[polygon] = shapeEntity;
 
@@ -896,6 +902,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
             FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid,
             PolygonPoints = new List<Point>(_polygonPoints)
         };
 
@@ -941,7 +948,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             ShapeType = ShapeType.Triangle,
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
         _shapeMap[polygon] = shapeEntity;
 
@@ -953,7 +961,8 @@ public sealed partial class DrawingCanvas : XamlCanvas
             EndPoint = _trianglePoints[2],
             StrokeColor = StrokeColor,
             StrokeThickness = StrokeThickness,
-            FillColor = FillColor
+            FillColor = FillColor,
+            StrokeStyle = StrokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid
         };
 
         ShapeDrawingCompleted?.Invoke(this, args);
@@ -1405,7 +1414,10 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
         if (strokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dash)
         {
-            shape.StrokeDashArray = new DoubleCollection { 2, 2 };
+            // Use the same dash pattern as when drawing initially: {4, 2}
+            // This ensures consistency between original shape and loaded template
+            shape.StrokeDashArray = new DoubleCollection { 4, 2 };
+            shape.StrokeDashCap = Microsoft.UI.Xaml.Media.PenLineCap.Flat;
         }
         else if (strokeStyle.Value == whiteboard_app_data.Enums.StrokeStyle.Dot)
         {
@@ -1485,7 +1497,9 @@ public sealed partial class DrawingCanvas : XamlCanvas
     public void RenderTemplateShape(ShapeModel templateShape, IDrawingService drawingService, double offsetX = 0, double offsetY = 0)
     {
         if (templateShape == null || drawingService == null || string.IsNullOrWhiteSpace(templateShape.SerializedData))
+        {
             return;
+        }
 
         XamlShape? xamlShape = null;
         Brush strokeBrush = CreateStrokeBrush(templateShape.StrokeColor);
@@ -1501,16 +1515,20 @@ public sealed partial class DrawingCanvas : XamlCanvas
                     var lineData = drawingService.DeserializeShapeData<LineShapeData>(templateShape.SerializedData);
                     if (lineData != null)
                     {
+                        var finalX1 = lineData.StartX + offsetX;
+                        var finalY1 = lineData.StartY + offsetY;
+                        var finalX2 = lineData.EndX + offsetX;
+                        var finalY2 = lineData.EndY + offsetY;
                         var line = new Line
                         {
-                            X1 = lineData.StartX + offsetX,
-                            Y1 = lineData.StartY + offsetY,
-                            X2 = lineData.EndX + offsetX,
-                            Y2 = lineData.EndY + offsetY,
+                            X1 = finalX1,
+                            Y1 = finalY1,
+                            X2 = finalX2,
+                            Y2 = finalY2,
                             Stroke = strokeBrush,
                             StrokeThickness = templateShape.StrokeThickness
                         };
-                        ApplyStrokeStyleWithStyle(line, GetStrokeStyleFromShape(line));
+                        ApplyStrokeStyleWithStyle(line, templateShape.StrokeStyle);
                         xamlShape = line;
                     }
                     break;
@@ -1527,7 +1545,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
                             StrokeThickness = templateShape.StrokeThickness,
                             Fill = fillBrush
                         };
-                        ApplyStrokeStyleWithStyle(rect, GetStrokeStyleFromShape(rect));
+                        ApplyStrokeStyleWithStyle(rect, templateShape.StrokeStyle);
                         XamlCanvas.SetLeft(rect, rectData.X + offsetX);
                         XamlCanvas.SetTop(rect, rectData.Y + offsetY);
                         xamlShape = rect;
@@ -1546,9 +1564,11 @@ public sealed partial class DrawingCanvas : XamlCanvas
                             StrokeThickness = templateShape.StrokeThickness,
                             Fill = fillBrush
                         };
-                        ApplyStrokeStyleWithStyle(ellipse, GetStrokeStyleFromShape(ellipse));
-                        XamlCanvas.SetLeft(ellipse, ovalData.CenterX - ovalData.RadiusX + offsetX);
-                        XamlCanvas.SetTop(ellipse, ovalData.CenterY - ovalData.RadiusY + offsetY);
+                        ApplyStrokeStyleWithStyle(ellipse, templateShape.StrokeStyle);
+                        var left = ovalData.CenterX - ovalData.RadiusX + offsetX;
+                        var top = ovalData.CenterY - ovalData.RadiusY + offsetY;
+                        XamlCanvas.SetLeft(ellipse, left);
+                        XamlCanvas.SetTop(ellipse, top);
                         xamlShape = ellipse;
                     }
                     break;
@@ -1565,7 +1585,7 @@ public sealed partial class DrawingCanvas : XamlCanvas
                             StrokeThickness = templateShape.StrokeThickness,
                             Fill = fillBrush
                         };
-                        ApplyStrokeStyleWithStyle(ellipse, GetStrokeStyleFromShape(ellipse));
+                        ApplyStrokeStyleWithStyle(ellipse, templateShape.StrokeStyle);
                         XamlCanvas.SetLeft(ellipse, circleData.CenterX - circleData.Radius + offsetX);
                         XamlCanvas.SetTop(ellipse, circleData.CenterY - circleData.Radius + offsetY);
                         xamlShape = ellipse;
@@ -1589,29 +1609,63 @@ public sealed partial class DrawingCanvas : XamlCanvas
                             new Point(triangleData.Point3X + offsetX, triangleData.Point3Y + offsetY)
                         };
                         polygon.Points = points;
-                        ApplyStrokeStyleWithStyle(polygon, GetStrokeStyleFromShape(polygon));
+                        ApplyStrokeStyleWithStyle(polygon, templateShape.StrokeStyle);
                         xamlShape = polygon;
                     }
                     break;
 
                 case ShapeType.Polygon:
-                    var polygonData = drawingService.DeserializeShapeData<PolygonShapeData>(templateShape.SerializedData);
-                    if (polygonData != null && polygonData.Points != null && polygonData.Points.Count >= 3)
+                    try
                     {
-                        var polygon = new Polygon
+                        var polygonData = drawingService.DeserializeShapeData<PolygonShapeData>(templateShape.SerializedData);
+                        if (polygonData != null && polygonData.Points != null && polygonData.Points.Count >= 3)
                         {
-                            Stroke = strokeBrush,
-                            StrokeThickness = templateShape.StrokeThickness,
-                            Fill = fillBrush
-                        };
-                        var points = new PointCollection();
-                        foreach (var pt in polygonData.Points)
-                        {
-                            points.Add(new Point(pt.X + offsetX, pt.Y + offsetY));
+                            var polygon = new Polygon
+                            {
+                                Stroke = strokeBrush,
+                                StrokeThickness = templateShape.StrokeThickness,
+                                Fill = fillBrush
+                            };
+                            var points = new PointCollection();
+                            foreach (var pt in polygonData.Points)
+                            {
+                                points.Add(new Point(pt.X + offsetX, pt.Y + offsetY));
+                            }
+                            polygon.Points = points;
+                            ApplyStrokeStyleWithStyle(polygon, templateShape.StrokeStyle);
+                            xamlShape = polygon;
                         }
-                        polygon.Points = points;
-                        ApplyStrokeStyleWithStyle(polygon, GetStrokeStyleFromShape(polygon));
-                        xamlShape = polygon;
+                    }
+                    catch
+                    {
+                        // If Polygon deserialization fails, it might actually be a Line
+                        // Try to deserialize as Line
+                        try
+                        {
+                            var lineDataFallback = drawingService.DeserializeShapeData<LineShapeData>(templateShape.SerializedData);
+                            if (lineDataFallback != null)
+                            {
+                                var finalX1 = lineDataFallback.StartX + offsetX;
+                                var finalY1 = lineDataFallback.StartY + offsetY;
+                                var finalX2 = lineDataFallback.EndX + offsetX;
+                                var finalY2 = lineDataFallback.EndY + offsetY;
+                                var line = new Line
+                                {
+                                    X1 = finalX1,
+                                    Y1 = finalY1,
+                                    X2 = finalX2,
+                                    Y2 = finalY2,
+                                    Stroke = strokeBrush,
+                                    StrokeThickness = templateShape.StrokeThickness
+                                };
+                                ApplyStrokeStyleWithStyle(line, templateShape.StrokeStyle);
+                                xamlShape = line;
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore fallback errors
+                        }
                     }
                     break;
             }
@@ -1634,9 +1688,9 @@ public sealed partial class DrawingCanvas : XamlCanvas
                 _shapeMap[xamlShape] = shapeEntity;
             }
         }
-        catch (Exception)
+        catch
         {
-            // Failed to render template shape - silently fail
+            // Failed to render template shape - ignore silently
         }
     }
 
@@ -1745,6 +1799,7 @@ public class ShapeDrawingCompletedEventArgs : EventArgs
     public string StrokeColor { get; set; } = "#000000";
     public double StrokeThickness { get; set; } = 2.0;
     public string FillColor { get; set; } = "Transparent";
+    public StrokeStyle StrokeStyle { get; set; } = StrokeStyle.Solid;
     public List<Point>? TrianglePoints { get; set; }
     public List<Point>? PolygonPoints { get; set; }
 }

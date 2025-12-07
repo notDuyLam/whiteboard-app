@@ -35,7 +35,6 @@ public class DrawingService : IDrawingService
             CreatedDate = DateTime.UtcNow
         };
         
-        System.Diagnostics.Debug.WriteLine($"[DrawingService] Created ShapeConcrete: Type={shape.ShapeType}, IsShapeConcrete={shape is ShapeConcrete}");
         return shape;
     }
 
