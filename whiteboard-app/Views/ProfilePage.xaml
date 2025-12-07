@@ -23,7 +23,10 @@
                 FontSize="32" />
             <Button
                 Click="CreateProfileButton_Click"
-                Style="{StaticResource AccentButtonStyle}">
+                Style="{StaticResource AccentButtonStyle}"
+                ToolTipService.ToolTip="Create a new profile with custom settings"
+                AutomationProperties.Name="Create Profile"
+                AutomationProperties.HelpText="Click to create a new profile with custom name, theme, canvas size, and stroke color">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE710;" FontSize="16" />
                     <TextBlock Text="Create Profile" />
@@ -57,6 +60,9 @@
                                 Padding="16"
                                 MinWidth="250"
                                 MinHeight="150">
+                                <Border.Shadow>
+                                    <ThemeShadow />
+                                </Border.Shadow>
                                 <StackPanel Spacing="8">
                                     <TextBlock 
                                         Text="{Binding Name}"
@@ -84,11 +90,17 @@
                                             Content="Edit"
                                             Click="EditProfileButton_Click"
                                             Tag="{Binding}"
-                                            Style="{StaticResource AccentButtonStyle}" />
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            ToolTipService.ToolTip="Edit this profile"
+                                            AutomationProperties.Name="Edit Profile"
+                                            AutomationProperties.HelpText="Click to edit the properties of this profile" />
                                         <Button
                                             x:Name="DeleteProfileButton"
                                             Click="DeleteProfileButton_Click"
-                                            Tag="{Binding}">
+                                            Tag="{Binding}"
+                                            ToolTipService.ToolTip="Delete this profile (cannot be undone)"
+                                            AutomationProperties.Name="Delete Profile"
+                                            AutomationProperties.HelpText="Click to delete this profile. This action cannot be undone">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon Glyph="&#xE74D;" FontSize="16" />
                                                 <TextBlock Text="Delete" />

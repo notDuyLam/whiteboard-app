@@ -32,7 +32,10 @@
                     <Button
                         x:Name="LineToolButton"
                         Click="LineToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw a line"
+                        AutomationProperties.Name="Line Tool"
+                        AutomationProperties.HelpText="Click to select the line drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE70F;" FontSize="16" />
                             <TextBlock Text="Line" />
@@ -43,7 +46,10 @@
                     <Button
                         x:Name="RectangleToolButton"
                         Click="RectangleToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw a rectangle"
+                        AutomationProperties.Name="Rectangle Tool"
+                        AutomationProperties.HelpText="Click to select the rectangle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE790;" FontSize="16" />
                             <TextBlock Text="Rectangle" />
@@ -54,7 +60,10 @@
                     <Button
                         x:Name="OvalToolButton"
                         Click="OvalToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw an oval"
+                        AutomationProperties.Name="Oval Tool"
+                        AutomationProperties.HelpText="Click to select the oval drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE7C3;" FontSize="16" />
                             <TextBlock Text="Oval" />
@@ -65,7 +74,10 @@
                     <Button
                         x:Name="CircleToolButton"
                         Click="CircleToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw a circle"
+                        AutomationProperties.Name="Circle Tool"
+                        AutomationProperties.HelpText="Click to select the circle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE7C4;" FontSize="16" />
                             <TextBlock Text="Circle" />
@@ -76,7 +88,10 @@
                     <Button
                         x:Name="TriangleToolButton"
                         Click="TriangleToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw a triangle"
+                        AutomationProperties.Name="Triangle Tool"
+                        AutomationProperties.HelpText="Click to select the triangle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE7C5;" FontSize="16" />
                             <TextBlock Text="Triangle" />
@@ -87,7 +102,10 @@
                     <Button
                         x:Name="PolygonToolButton"
                         Click="PolygonToolButton_Click"
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Draw a polygon (click multiple points)"
+                        AutomationProperties.Name="Polygon Tool"
+                        AutomationProperties.HelpText="Click to select the polygon drawing tool. Click multiple points to create a polygon">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE7C6;" FontSize="16" />
                             <TextBlock Text="Polygon" />
@@ -105,7 +123,10 @@
                     <ComboBox
                         x:Name="StrokeStyleComboBox"
                         Header="Stroke Style"
-                        SelectionChanged="StrokeStyleComboBox_SelectionChanged">
+                        SelectionChanged="StrokeStyleComboBox_SelectionChanged"
+                        ToolTipService.ToolTip="Select the stroke style (Solid, Dash, or Dot)"
+                        AutomationProperties.Name="Stroke Style"
+                        AutomationProperties.HelpText="Choose the style for shape outlines">
                         <ComboBoxItem Content="Solid" Tag="Solid" />
                         <ComboBoxItem Content="Dash" Tag="Dash" />
                         <ComboBoxItem Content="Dot" Tag="Dot" />
@@ -116,7 +137,10 @@
                         x:Name="StrokeColorTextBox"
                         Header="Stroke Color (Hex)"
                         Text="#000000"
-                        TextChanged="StrokeColorTextBox_TextChanged" />
+                        TextChanged="StrokeColorTextBox_TextChanged"
+                        ToolTipService.ToolTip="Enter stroke color in hex format (e.g., #FF0000 for red)"
+                        AutomationProperties.Name="Stroke Color"
+                        AutomationProperties.HelpText="Enter the color for shape outlines in hexadecimal format" />
                     
                     <!-- Stroke Thickness -->
                     <Slider
@@ -126,11 +150,15 @@
                         Maximum="20"
                         Value="2"
                         TickFrequency="1"
-                        ValueChanged="StrokeThicknessSlider_ValueChanged" />
+                        ValueChanged="StrokeThicknessSlider_ValueChanged"
+                        ToolTipService.ToolTip="Adjust the thickness of shape outlines"
+                        AutomationProperties.Name="Stroke Thickness"
+                        AutomationProperties.HelpText="Set the width of shape outlines from 1 to 20 pixels" />
                     <TextBlock
                         x:Name="StrokeThicknessTextBlock"
                         Text="2"
-                        HorizontalAlignment="Center" />
+                        HorizontalAlignment="Center"
+                        AutomationProperties.LabeledBy="{x:Bind StrokeThicknessSlider}" />
                     
                     <!-- Fill Color -->
                     <TextBox
@@ -138,7 +166,10 @@
                         Header="Fill Color (Hex or Transparent)"
                         Text="Transparent"
                         PlaceholderText="Transparent or #RRGGBB"
-                        TextChanged="FillColorTextBox_TextChanged" />
+                        TextChanged="FillColorTextBox_TextChanged"
+                        ToolTipService.ToolTip="Enter fill color in hex format or 'Transparent'"
+                        AutomationProperties.Name="Fill Color"
+                        AutomationProperties.HelpText="Enter the color for shape fills in hexadecimal format or 'Transparent' for no fill" />
                     
                     <!-- Selection Mode -->
                     <TextBlock
@@ -150,7 +181,10 @@
                     <ToggleSwitch
                         x:Name="SelectionModeToggle"
                         Header="Selection Mode"
-                        Toggled="SelectionModeToggle_Toggled" />
+                        Toggled="SelectionModeToggle_Toggled"
+                        ToolTipService.ToolTip="Enable selection mode to select and edit shapes"
+                        AutomationProperties.Name="Selection Mode"
+                        AutomationProperties.HelpText="Toggle to enable or disable shape selection mode" />
                     
                     <!-- Edit Selected Shape -->
                     <Button
@@ -158,7 +192,10 @@
                         Content="Edit Selected Shape"
                         Click="EditShapeButton_Click"
                         IsEnabled="False"
-                        HorizontalAlignment="Stretch" />
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Edit properties of the selected shape"
+                        AutomationProperties.Name="Edit Selected Shape"
+                        AutomationProperties.HelpText="Click to edit the properties of the currently selected shape" />
                     
                     <!-- Delete Selected Shape -->
                     <Button
@@ -166,7 +203,10 @@
                         Content="Delete Selected Shape"
                         Click="DeleteShapeButton_Click"
                         IsEnabled="False"
-                        HorizontalAlignment="Stretch" />
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Delete the selected shape"
+                        AutomationProperties.Name="Delete Selected Shape"
+                        AutomationProperties.HelpText="Click to delete the currently selected shape" />
                     
                     <!-- Save as Template -->
                     <Button
@@ -175,7 +215,10 @@
                         Click="SaveAsTemplateButton_Click"
                         IsEnabled="False"
                         HorizontalAlignment="Stretch"
-                        Margin="0,8,0,0" />
+                        Margin="0,8,0,0"
+                        ToolTipService.ToolTip="Save the selected shape as a reusable template"
+                        AutomationProperties.Name="Save as Template"
+                        AutomationProperties.HelpText="Click to save the currently selected shape as a template for future use" />
                     
                     <!-- Template Management -->
                     <TextBlock
@@ -189,14 +232,20 @@
                         Content="Manage Templates"
                         Click="ManageTemplatesButton_Click"
                         HorizontalAlignment="Stretch"
-                        Margin="0,8,0,0" />
+                        Margin="0,8,0,0"
+                        ToolTipService.ToolTip="Open template management dialog"
+                        AutomationProperties.Name="Manage Templates"
+                        AutomationProperties.HelpText="Click to open the template management dialog where you can view and delete saved templates" />
                     
                     <Button
                         x:Name="LoadTemplateButton"
                         Content="Load Template"
                         Click="LoadTemplateButton_Click"
                         HorizontalAlignment="Stretch"
-                        Margin="0,8,0,0" />
+                        Margin="0,8,0,0"
+                        ToolTipService.ToolTip="Load a template shape onto the canvas"
+                        AutomationProperties.Name="Load Template"
+                        AutomationProperties.HelpText="Click to open a dialog to select and load a saved template shape onto the canvas" />
                     
                     <!-- Canvas Actions -->
                     <TextBlock
@@ -210,7 +259,10 @@
                         x:Name="SaveCanvasButton"
                         Click="SaveCanvasButton_Click"
                         HorizontalAlignment="Stretch"
-                        Style="{StaticResource AccentButtonStyle}">
+                        Style="{StaticResource AccentButtonStyle}"
+                        ToolTipService.ToolTip="Save the current canvas and all shapes"
+                        AutomationProperties.Name="Save Canvas"
+                        AutomationProperties.HelpText="Click to save the current canvas and all shapes to the database">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE74E;" FontSize="16" />
                             <TextBlock Text="Save Canvas" />
@@ -222,7 +274,10 @@
                         x:Name="DeleteCanvasButton"
                         Click="DeleteCanvasButton_Click"
                         HorizontalAlignment="Stretch"
-                        Margin="0,8,0,0">
+                        Margin="0,8,0,0"
+                        ToolTipService.ToolTip="Delete the current canvas and all its shapes"
+                        AutomationProperties.Name="Delete Canvas"
+                        AutomationProperties.HelpText="Click to delete the current canvas. This action cannot be undone">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE74D;" FontSize="16" />
                             <TextBlock Text="Delete Canvas" />
