@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using whiteboard_app_data.Data;
 using whiteboard_app_data.Models;
+using ShapeConcrete = whiteboard_app_data.Models.ShapeConcrete;
 
 namespace whiteboard_app.Services;
 
@@ -141,10 +143,41 @@ public class DataService : IDataService
 
     public async Task<List<Shape>> GetAllTemplatesAsync()
     {
-        return await _context.Shapes
-            .Where(s => s.IsTemplate && s.TemplateName != null)
-            .OrderBy(s => s.TemplateName)
-            .ToListAsync();
+        try
+        {
+            // Query using ShapeConcretes DbSet directly to avoid discriminator issues
+            // This ensures EF Core materializes entities correctly
+            var templates = await _context.ShapeConcretes
+                .Where(s => s.IsTemplate && s.TemplateName != null)
+                .OrderBy(s => s.TemplateName)
+                .Cast<Shape>()
+                .ToListAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"[DataService] Found {templates.Count} templates");
+            return templates;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DataService] Error in GetAllTemplatesAsync: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DataService] Inner: {ex.InnerException?.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DataService] StackTrace: {ex.StackTrace}");
+            
+            // Only clean up if there's a discriminator error
+            if (ex.Message.Contains("discriminator", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await _context.Database.ExecuteSqlRawAsync("DELETE FROM Shapes WHERE IsTemplate = 1");
+                    System.Diagnostics.Debug.WriteLine($"[DataService] Deleted all templates due to discriminator error");
+                }
+                catch (Exception cleanupEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DataService] Cleanup error: {cleanupEx.Message}");
+                }
+            }
+            
+            return new List<Shape>();
+        }
     }
 
     public async Task<Shape?> GetShapeByIdAsync(Guid id)
@@ -154,12 +187,45 @@ public class DataService : IDataService
 
     public async Task<Shape> CreateShapeAsync(Shape shape)
     {
-        shape.Id = Guid.NewGuid();
-        shape.CreatedDate = DateTime.UtcNow;
+        try
+        {
+            shape.Id = Guid.NewGuid();
+            shape.CreatedDate = DateTime.UtcNow;
 
-        _context.Shapes.Add(shape);
-        await _context.SaveChangesAsync();
-        return shape;
+            // Log shape details before saving
+            var shapeType = shape.GetType().Name;
+            var isShapeConcrete = shape is ShapeConcrete;
+            System.Diagnostics.Debug.WriteLine($"[DataService] Creating shape: Type={shape.ShapeType}, ShapeType={shapeType}, IsTemplate={shape.IsTemplate}, TemplateName={shape.TemplateName}, IsShapeConcrete={isShapeConcrete}");
+            
+            // Check if shape is actually ShapeConcrete
+            if (!isShapeConcrete)
+            {
+                throw new InvalidOperationException($"Shape must be ShapeConcrete, but got {shapeType}");
+            }
+            
+            _context.Shapes.Add(shape);
+            System.Diagnostics.Debug.WriteLine($"[DataService] Shape added to context, about to save changes...");
+            
+            await _context.SaveChangesAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"[DataService] Shape created successfully with Id: {shape.Id}");
+            return shape;
+        }
+        catch (Exception ex)
+        {
+            var errorDetails = $"[DataService] Error creating shape: {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                errorDetails += $"\nInner: {ex.InnerException.Message}";
+            }
+            errorDetails += $"\nType: {ex.GetType().Name}";
+            errorDetails += $"\nStackTrace: {ex.StackTrace}";
+            
+            System.Diagnostics.Debug.WriteLine(errorDetails);
+            System.Console.WriteLine(errorDetails); // Also write to console
+            
+            throw;
+        }
     }
 
     public async Task<Shape> UpdateShapeAsync(Shape shape)

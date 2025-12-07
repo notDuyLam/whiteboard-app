@@ -24,7 +24,7 @@ public class DrawingService : IDrawingService
         string fillColor,
         string serializedData)
     {
-        return new ShapeConcrete
+        var shape = new ShapeConcrete
         {
             ShapeType = shapeType,
             CanvasId = canvasId,
@@ -34,6 +34,9 @@ public class DrawingService : IDrawingService
             SerializedData = serializedData,
             CreatedDate = DateTime.UtcNow
         };
+        
+        System.Diagnostics.Debug.WriteLine($"[DrawingService] Created ShapeConcrete: Type={shape.ShapeType}, IsShapeConcrete={shape is ShapeConcrete}");
+        return shape;
     }
 
     public string SerializeShapeData<T>(T shapeData) where T : class

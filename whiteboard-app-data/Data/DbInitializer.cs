@@ -28,7 +28,8 @@ public static class DbInitializer
 
             SeedProfiles(context);
             SeedCanvases(context);
-            SeedTemplates(context);
+            // Temporarily disable template seeding to avoid discriminator issues
+            // SeedTemplates(context);
         }
         catch (Exception)
         {
@@ -44,7 +45,8 @@ public static class DbInitializer
     {
         SeedProfiles(context);
         SeedCanvases(context);
-        SeedTemplates(context);
+        // Temporarily disable template seeding to avoid discriminator issues
+        // SeedTemplates(context);
     }
 
     private static void SeedProfiles(WhiteboardDbContext context)

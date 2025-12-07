@@ -176,7 +176,12 @@ namespace whiteboard_app_data.Migrations
                 {
                     b.HasBaseType("whiteboard_app_data.Models.Shape");
 
-                    b.HasDiscriminator().HasValue(5);
+                    b.HasDiscriminator().HasValue(0)  // Line
+                        .HasValue(1)  // Rectangle
+                        .HasValue(2)  // Oval
+                        .HasValue(3)  // Circle
+                        .HasValue(4)  // Triangle
+                        .HasValue(5); // Polygon
                 });
 
             modelBuilder.Entity("whiteboard_app_data.Models.Canvas", b =>

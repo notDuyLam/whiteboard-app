@@ -11,8 +11,8 @@ using whiteboard_app_data.Data;
 namespace whiteboard_app_data.Migrations
 {
     [DbContext(typeof(WhiteboardDbContext))]
-    [Migration("20251206091104_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251207025320_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -179,7 +179,12 @@ namespace whiteboard_app_data.Migrations
                 {
                     b.HasBaseType("whiteboard_app_data.Models.Shape");
 
-                    b.HasDiscriminator().HasValue(5);
+                    b.HasDiscriminator().HasValue(0)  // Line
+                        .HasValue(1)  // Rectangle
+                        .HasValue(2)  // Oval
+                        .HasValue(3)  // Circle
+                        .HasValue(4)  // Triangle
+                        .HasValue(5); // Polygon
                 });
 
             modelBuilder.Entity("whiteboard_app_data.Models.Canvas", b =>

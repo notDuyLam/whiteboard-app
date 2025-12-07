@@ -24,6 +24,11 @@ public class WhiteboardDbContext : DbContext
     /// Gets or sets the Shapes DbSet.
     /// </summary>
     public DbSet<Shape> Shapes { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the ShapeConcrete DbSet for direct access.
+    /// </summary>
+    public DbSet<ShapeConcrete> ShapeConcretes { get; set; }
 
     public WhiteboardDbContext(DbContextOptions<WhiteboardDbContext> options)
         : base(options)
@@ -73,17 +78,21 @@ public class WhiteboardDbContext : DbContext
             entity.HasIndex(e => e.CreatedDate);
         });
 
-        // Configure Shape entity (Table-Per-Hierarchy for different shape types)
+        // Configure Shape entity with discriminator that maps all values to ShapeConcrete
         modelBuilder.Entity<Shape>(entity =>
         {
-            entity.HasDiscriminator<ShapeType>("ShapeType")
+            // Configure discriminator using ShapeType property
+            // EF Core will use the underlying integer value of the enum
+            // Map ALL enum values explicitly to ShapeConcrete
+            // (0=Line, 1=Rectangle, 2=Oval, 3=Circle, 4=Triangle, 5=Polygon)
+            entity.HasDiscriminator(s => s.ShapeType)
                   .HasValue<ShapeConcrete>(ShapeType.Line)
                   .HasValue<ShapeConcrete>(ShapeType.Rectangle)
                   .HasValue<ShapeConcrete>(ShapeType.Oval)
                   .HasValue<ShapeConcrete>(ShapeType.Circle)
                   .HasValue<ShapeConcrete>(ShapeType.Triangle)
                   .HasValue<ShapeConcrete>(ShapeType.Polygon);
-
+            
             entity.HasOne(e => e.Canvas)
                   .WithMany(c => c.Shapes)
                   .HasForeignKey(e => e.CanvasId)

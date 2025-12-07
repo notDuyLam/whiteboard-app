@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Foundation;
 using whiteboard_app.Controls;
 using whiteboard_app.Services;
 using whiteboard_app_data.Enums;
@@ -11,6 +12,7 @@ using whiteboard_app_data.Models;
 using whiteboard_app_data.Models.ShapeTypes;
 using CanvasModel = whiteboard_app_data.Models.Canvas;
 using StrokeStyleEnum = whiteboard_app_data.Enums.StrokeStyle;
+using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
 
 namespace whiteboard_app.Views;
 
@@ -774,13 +776,80 @@ public sealed partial class DrawingPage : Page
                     return;
                 }
 
-                // Validate serialized data is not empty
-                if (string.IsNullOrWhiteSpace(selectedShapeModel.SerializedData))
+                // Get or create serialized data from selected shape
+                string serializedData = selectedShapeModel.SerializedData;
+                
+                // If SerializedData is empty, create it from the selected XamlShape
+                if (string.IsNullOrWhiteSpace(serializedData))
                 {
-                    errorTextBlock.Text = "Selected shape has invalid data and cannot be saved as template.";
-                    errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-                    args.Cancel = true;
-                    return;
+                    var selectedXamlShape = DrawingCanvasControl.SelectedShape;
+                    if (selectedXamlShape == null)
+                    {
+                        errorTextBlock.Text = "No shape selected.";
+                        errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                        args.Cancel = true;
+                        return;
+                    }
+                    
+                    // Serialize shape data based on type
+                    serializedData = selectedShapeModel.ShapeType switch
+                    {
+                        ShapeType.Line when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Line line =>
+                            _drawingService.SerializeShapeData(new LineShapeData
+                            {
+                                StartX = line.X1,
+                                StartY = line.Y1,
+                                EndX = line.X2,
+                                EndY = line.Y2
+                            }),
+                        ShapeType.Rectangle when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Rectangle rect =>
+                            _drawingService.SerializeShapeData(new RectangleShapeData
+                            {
+                                X = XamlCanvas.GetLeft(rect),
+                                Y = XamlCanvas.GetTop(rect),
+                                Width = rect.Width,
+                                Height = rect.Height
+                            }),
+                        ShapeType.Oval when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Ellipse ellipse =>
+                            _drawingService.SerializeShapeData(new OvalShapeData
+                            {
+                                CenterX = XamlCanvas.GetLeft(ellipse) + ellipse.Width / 2,
+                                CenterY = XamlCanvas.GetTop(ellipse) + ellipse.Height / 2,
+                                RadiusX = ellipse.Width / 2,
+                                RadiusY = ellipse.Height / 2
+                            }),
+                        ShapeType.Circle when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Ellipse ellipse =>
+                            _drawingService.SerializeShapeData(new CircleShapeData
+                            {
+                                CenterX = XamlCanvas.GetLeft(ellipse) + ellipse.Width / 2,
+                                CenterY = XamlCanvas.GetTop(ellipse) + ellipse.Height / 2,
+                                Radius = Math.Min(ellipse.Width, ellipse.Height) / 2
+                            }),
+                        ShapeType.Triangle when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Polygon polygon && polygon.Points.Count == 3 =>
+                            _drawingService.SerializeShapeData(new TriangleShapeData
+                            {
+                                Point1X = polygon.Points[0].X,
+                                Point1Y = polygon.Points[0].Y,
+                                Point2X = polygon.Points[1].X,
+                                Point2Y = polygon.Points[1].Y,
+                                Point3X = polygon.Points[2].X,
+                                Point3Y = polygon.Points[2].Y
+                            }),
+                        ShapeType.Polygon when selectedXamlShape is Microsoft.UI.Xaml.Shapes.Polygon polygon =>
+                            _drawingService.SerializeShapeData(new PolygonShapeData
+                            {
+                                Points = polygon.Points.Select(p => new PointData { X = p.X, Y = p.Y }).ToList()
+                            }),
+                        _ => string.Empty
+                    };
+                    
+                    if (string.IsNullOrWhiteSpace(serializedData))
+                    {
+                        errorTextBlock.Text = "Selected shape has invalid data and cannot be saved as template.";
+                        errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+                        args.Cancel = true;
+                        return;
+                    }
                 }
 
                 // Create template shape (copy of selected shape)
@@ -791,7 +860,7 @@ public sealed partial class DrawingPage : Page
                     selectedShapeModel.StrokeColor,
                     selectedShapeModel.StrokeThickness,
                     selectedShapeModel.FillColor,
-                    selectedShapeModel.SerializedData
+                    serializedData
                 );
 
                 // Set template properties
@@ -799,12 +868,38 @@ public sealed partial class DrawingPage : Page
                 templateShape.TemplateName = templateName.Trim();
                 templateShape.CanvasId = null; // Templates are not associated with any canvas
 
+                // Log before saving - add to error message for debugging
+                var debugInfo = $"Type={templateShape.ShapeType}, IsTemplate={templateShape.IsTemplate}, IsShapeConcrete={templateShape is whiteboard_app_data.Models.ShapeConcrete}";
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] About to save template: {debugInfo}");
+                
                 // Save template to database
                 await _dataService.CreateShapeAsync(templateShape);
+                
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] Template saved successfully");
             }
             catch (Exception ex)
             {
-                errorTextBlock.Text = $"Failed to save template: {ex.Message}";
+                // Build detailed error message for debugging
+                var errorMessage = $"Failed to save template: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $"\n\nInner Exception: {ex.InnerException.Message}";
+                    if (ex.InnerException.InnerException != null)
+                    {
+                        errorMessage += $"\n\nInner-Inner: {ex.InnerException.InnerException.Message}";
+                    }
+                }
+                errorMessage += $"\n\nException Type: {ex.GetType().Name}";
+                if (ex is System.InvalidOperationException invalidOpEx)
+                {
+                    errorMessage += $"\n\nFull Exception Details:\n{ex}";
+                }
+                
+                // Also log to debug output
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] ERROR: {errorMessage}");
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] StackTrace: {ex.StackTrace}");
+                
+                errorTextBlock.Text = errorMessage;
                 errorTextBlock.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
                 args.Cancel = true;
             }
@@ -835,7 +930,9 @@ public sealed partial class DrawingPage : Page
         try
         {
             // Load all templates
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loading templates...");
             var templates = await _dataService.GetAllTemplatesAsync();
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] Loaded {templates.Count} templates");
 
             // Show dialog with template list
             var dialog = new ContentDialog
