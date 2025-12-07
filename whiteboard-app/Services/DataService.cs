@@ -143,10 +143,23 @@ public class DataService : IDataService
 
     public async Task<Canvas> UpdateCanvasAsync(Canvas canvas)
     {
-        canvas.LastModifiedDate = DateTime.UtcNow;
-        _context.Canvases.Update(canvas);
+        // Reload entity from DB to ensure it's tracked correctly
+        var existingCanvas = await _context.Canvases.FindAsync(canvas.Id);
+        if (existingCanvas == null)
+        {
+            throw new InvalidOperationException($"Canvas with Id {canvas.Id} not found in database");
+        }
+        
+        // Update properties
+        existingCanvas.Name = canvas.Name;
+        existingCanvas.Width = canvas.Width;
+        existingCanvas.Height = canvas.Height;
+        existingCanvas.BackgroundColor = canvas.BackgroundColor;
+        existingCanvas.ProfileId = canvas.ProfileId;
+        existingCanvas.LastModifiedDate = DateTime.UtcNow;
+        
         await _context.SaveChangesAsync();
-        return canvas;
+        return existingCanvas;
     }
 
     public async Task<bool> DeleteCanvasAsync(Guid id)
@@ -442,9 +455,26 @@ public class DataService : IDataService
 
     public async Task<Shape> UpdateShapeAsync(Shape shape)
     {
-        _context.Shapes.Update(shape);
+        // Reload entity from DB to ensure it's tracked correctly
+        var existingShape = await _context.ShapeConcretes.FindAsync(shape.Id);
+        if (existingShape == null)
+        {
+            throw new InvalidOperationException($"Shape with Id {shape.Id} not found in database");
+        }
+        
+        // Update properties
+        existingShape.ShapeType = shape.ShapeType;
+        existingShape.StrokeColor = shape.StrokeColor;
+        existingShape.StrokeThickness = shape.StrokeThickness;
+        existingShape.FillColor = shape.FillColor;
+        existingShape.StrokeStyle = shape.StrokeStyle;
+        existingShape.SerializedData = shape.SerializedData;
+        existingShape.CanvasId = shape.CanvasId;
+        existingShape.IsTemplate = shape.IsTemplate;
+        existingShape.TemplateName = shape.TemplateName;
+        
         await _context.SaveChangesAsync();
-        return shape;
+        return existingShape;
     }
 
     public async Task<bool> DeleteShapeAsync(Guid id)

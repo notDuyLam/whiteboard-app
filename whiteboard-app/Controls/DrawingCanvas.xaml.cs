@@ -1293,6 +1293,14 @@ public sealed partial class DrawingCanvas : XamlCanvas
     }
 
     /// <summary>
+    /// Gets all shape models currently on the canvas.
+    /// </summary>
+    public List<ShapeModel> GetAllShapeModels()
+    {
+        return _shapeMap.Values.ToList();
+    }
+
+    /// <summary>
     /// Gets the properties of the selected shape.
     /// </summary>
     public (string StrokeColor, double StrokeThickness, string FillColor, StrokeStyle? StrokeStyle) GetSelectedShapeProperties()
@@ -1395,6 +1403,16 @@ public sealed partial class DrawingCanvas : XamlCanvas
             polygon.StrokeThickness = strokeThickness;
             polygon.Fill = fillBrush;
             ApplyStrokeStyleWithStyle(polygon, strokeStyle);
+        }
+
+        // Update the shape entity in _shapeMap
+        if (_shapeMap.ContainsKey(_selectedShape))
+        {
+            var shapeEntity = _shapeMap[_selectedShape];
+            shapeEntity.StrokeColor = strokeColor;
+            shapeEntity.StrokeThickness = strokeThickness;
+            shapeEntity.FillColor = fillColor;
+            shapeEntity.StrokeStyle = strokeStyle ?? whiteboard_app_data.Enums.StrokeStyle.Solid;
         }
 
         // Update selection border

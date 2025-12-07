@@ -49,11 +49,13 @@
             Grid.Row="1"
             IsBackButtonVisible="Auto"
             IsSettingsVisible="False"
-            PaneDisplayMode="Left"
+            PaneDisplayMode="Auto"
             IsPaneOpen="True"
             BackRequested="RootNavigationView_BackRequested"
             ItemInvoked="RootNavigationView_ItemInvoked"
-            DisplayModeChanged="RootNavigationView_DisplayModeChanged">
+            DisplayModeChanged="RootNavigationView_DisplayModeChanged"
+            PaneClosing="RootNavigationView_PaneClosing"
+            PaneOpening="RootNavigationView_PaneOpening">
             <NavigationView.MenuItems>
                 <NavigationViewItem 
                     x:Name="HomeNavItem"

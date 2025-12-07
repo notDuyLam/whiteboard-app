@@ -8,19 +8,59 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Grid>
+    <Grid x:Name="RootGrid">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="Narrow">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ToolsPanelColumn.Width" Value="0" />
+                        <Setter Target="ToggleSidebarButton.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Wide">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="800" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ToolsPanelColumn.Width" Value="200" />
+                        <Setter Target="ToggleSidebarButton.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition x:Name="ToolsPanelColumn" Width="200" MinWidth="0" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         
+        <!-- Toggle Sidebar Button (visible when sidebar is closed) -->
+        <Button
+            x:Name="ToggleSidebarButton"
+            Grid.Column="0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="8"
+            Padding="8"
+            Click="ToggleSidebarButton_Click"
+            Visibility="Collapsed"
+            ToolTipService.ToolTip="Toggle drawing tools panel"
+            AutomationProperties.Name="Toggle Sidebar"
+            AutomationProperties.HelpText="Click to show or hide the drawing tools panel">
+            <FontIcon Glyph="&#xE700;" FontSize="16" />
+        </Button>
+        
         <!-- Drawing Tools Panel -->
         <Border
+            x:Name="ToolsPanel"
             Grid.Column="0"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,0,1,0"
-            Width="200">
+            MinWidth="200">
             <ScrollViewer>
                 <StackPanel Spacing="12" Padding="16">
                     <TextBlock
@@ -37,7 +77,13 @@
                         AutomationProperties.Name="Line Tool"
                         AutomationProperties.HelpText="Click to select the line drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE70F;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Path Data="M 2,8 L 14,8" 
+                                      Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                      StrokeThickness="2" 
+                                      StrokeEndLineCap="Round" 
+                                      StrokeStartLineCap="Round" />
+                            </Viewbox>
                             <TextBlock Text="Line" />
                         </StackPanel>
                     </Button>
@@ -51,7 +97,12 @@
                         AutomationProperties.Name="Rectangle Tool"
                         AutomationProperties.HelpText="Click to select the rectangle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE790;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Rectangle Width="12" Height="9" 
+                                          Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                          StrokeThickness="2" 
+                                          Fill="Transparent" />
+                            </Viewbox>
                             <TextBlock Text="Rectangle" />
                         </StackPanel>
                     </Button>
@@ -65,7 +116,12 @@
                         AutomationProperties.Name="Oval Tool"
                         AutomationProperties.HelpText="Click to select the oval drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE7C3;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Ellipse Width="12" Height="8" 
+                                        Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                        StrokeThickness="2" 
+                                        Fill="Transparent" />
+                            </Viewbox>
                             <TextBlock Text="Oval" />
                         </StackPanel>
                     </Button>
@@ -79,7 +135,12 @@
                         AutomationProperties.Name="Circle Tool"
                         AutomationProperties.HelpText="Click to select the circle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE7C4;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Ellipse Width="12" Height="12" 
+                                        Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                        StrokeThickness="2" 
+                                        Fill="Transparent" />
+                            </Viewbox>
                             <TextBlock Text="Circle" />
                         </StackPanel>
                     </Button>
@@ -93,7 +154,12 @@
                         AutomationProperties.Name="Triangle Tool"
                         AutomationProperties.HelpText="Click to select the triangle drawing tool">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE7C5;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Path Data="M 8,2 L 2,14 L 14,14 Z" 
+                                      Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                      StrokeThickness="2" 
+                                      Fill="Transparent" />
+                            </Viewbox>
                             <TextBlock Text="Triangle" />
                         </StackPanel>
                     </Button>
@@ -107,7 +173,12 @@
                         AutomationProperties.Name="Polygon Tool"
                         AutomationProperties.HelpText="Click to select the polygon drawing tool. Click multiple points to create a polygon">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE7C6;" FontSize="16" />
+                            <Viewbox Width="16" Height="16">
+                                <Path Data="M 8,2 L 13,6 L 11,12 L 5,12 L 3,6 Z" 
+                                      Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                      StrokeThickness="2" 
+                                      Fill="Transparent" />
+                            </Viewbox>
                             <TextBlock Text="Polygon" />
                         </StackPanel>
                     </Button>
@@ -196,6 +267,28 @@
                         ToolTipService.ToolTip="Edit properties of the selected shape"
                         AutomationProperties.Name="Edit Selected Shape"
                         AutomationProperties.HelpText="Click to edit the properties of the currently selected shape" />
+                    
+                    <!-- Fill Selected Shape -->
+                    <Button
+                        x:Name="FillShapeButton"
+                        Click="FillShapeButton_Click"
+                        IsEnabled="False"
+                        HorizontalAlignment="Stretch"
+                        ToolTipService.ToolTip="Fill the selected shape with the current fill color"
+                        AutomationProperties.Name="Fill Selected Shape"
+                        AutomationProperties.HelpText="Click to fill the currently selected shape with the color specified in Fill Color field">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" Height="16">
+                                <Rectangle 
+                                    Width="12" 
+                                    Height="12" 
+                                    Fill="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                    Stroke="{ThemeResource SystemControlForegroundBaseHighBrush}" 
+                                    StrokeThickness="1" />
+                            </Viewbox>
+                            <TextBlock Text="Fill Selected Shape" />
+                        </StackPanel>
+                    </Button>
                     
                     <!-- Delete Selected Shape -->
                     <Button

@@ -24,6 +24,7 @@ public sealed partial class DrawingPage : Page
     private readonly IDataService? _dataService;
     private readonly IDrawingService? _drawingService;
     private CanvasModel? _currentCanvas;
+    private Profile? _currentProfile;
 
     public DrawingPage()
     {
@@ -54,6 +55,12 @@ public sealed partial class DrawingPage : Page
         {
             if (e.Parameter is CanvasModel canvas)
             {
+                // Load canvas with its profile
+                if (canvas.Profile != null)
+                {
+                    _currentProfile = canvas.Profile;
+                    ApplyProfileSettings(_currentProfile);
+                }
                 SetCanvas(canvas);
                 await LoadCanvasShapesAsync(canvas);
             }
@@ -62,10 +69,37 @@ public sealed partial class DrawingPage : Page
                 var loadedCanvas = await _dataService.GetCanvasByIdAsync(canvasId);
                 if (loadedCanvas != null)
                 {
+                    if (loadedCanvas.Profile != null)
+                    {
+                        _currentProfile = loadedCanvas.Profile;
+                        ApplyProfileSettings(_currentProfile);
+                    }
                     SetCanvas(loadedCanvas);
                     await LoadCanvasShapesAsync(loadedCanvas);
                 }
             }
+            else if (e.Parameter is Profile profile)
+            {
+                // Profile passed from HomePage - create new canvas (not saved yet)
+                _currentProfile = profile;
+                ApplyProfileSettings(_currentProfile);
+                
+                // Create a temporary canvas (not saved to DB yet)
+                _currentCanvas = null;
+                if (DrawingCanvasControl != null)
+                {
+                    DrawingCanvasControl.ClearAllShapes();
+                    DrawingCanvasControl.CanvasModel = null;
+                    // Set canvas size from profile
+                    DrawingCanvasControl.Width = profile.DefaultCanvasWidth;
+                    DrawingCanvasControl.Height = profile.DefaultCanvasHeight;
+                }
+            }
+        }
+        else
+        {
+            // No parameter - require profile selection
+            await ShowProfileRequiredDialog();
         }
     }
 
@@ -144,6 +178,88 @@ public sealed partial class DrawingPage : Page
         // Apply initial settings to canvas
         ApplyStrokeSettings();
         ApplyFillColor();
+    }
+
+    /// <summary>
+    /// Applies profile settings to the drawing page (stroke color, thickness, canvas size, theme).
+    /// </summary>
+    private void ApplyProfileSettings(Profile profile)
+    {
+        if (profile == null)
+            return;
+
+        // Apply stroke color
+        if (StrokeColorTextBox != null)
+        {
+            StrokeColorTextBox.Text = profile.DefaultStrokeColor;
+        }
+
+        // Apply stroke thickness
+        if (StrokeThicknessSlider != null)
+        {
+            StrokeThicknessSlider.Value = profile.DefaultStrokeThickness;
+        }
+        if (StrokeThicknessTextBlock != null)
+        {
+            StrokeThicknessTextBlock.Text = profile.DefaultStrokeThickness.ToString("F1");
+        }
+
+        // Apply fill color
+        if (FillColorTextBox != null)
+        {
+            FillColorTextBox.Text = profile.DefaultFillColor;
+        }
+
+        // Apply canvas size
+        if (DrawingCanvasControl != null)
+        {
+            DrawingCanvasControl.Width = profile.DefaultCanvasWidth;
+            DrawingCanvasControl.Height = profile.DefaultCanvasHeight;
+        }
+
+        // Apply theme (if supported)
+        // Note: Theme application might need to be handled at application level
+        
+        // Apply settings to canvas
+        ApplyStrokeSettings();
+        ApplyFillColor();
+    }
+
+    /// <summary>
+    /// Shows a dialog requiring the user to select a profile before drawing.
+    /// </summary>
+    private async Task ShowProfileRequiredDialog()
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Profile Required",
+            Content = "You must select a profile before drawing. Please go to the Home page and select a profile first.",
+            PrimaryButtonText = "Go to Home",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            // Navigate to HomePage
+            var navigationService = App.ServiceProvider?.GetService(typeof(INavigationService)) as INavigationService;
+            navigationService?.NavigateTo(typeof(Views.HomePage));
+        }
+        else
+        {
+            // Navigate back if user cancels
+            var navigationService = App.ServiceProvider?.GetService(typeof(INavigationService)) as INavigationService;
+            if (navigationService?.CanGoBack == true)
+            {
+                navigationService.GoBack();
+            }
+            else
+            {
+                navigationService?.NavigateTo(typeof(Views.HomePage));
+            }
+        }
     }
 
     private void ApplyStrokeSettings()
@@ -443,6 +559,87 @@ public sealed partial class DrawingPage : Page
         }
     }
 
+    /// <summary>
+    /// Handles the Fill Selected Shape button click event.
+    /// </summary>
+    private async void FillShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (DrawingCanvasControl?.SelectedShape == null)
+        {
+            ShowSaveNotification("No shape selected", isError: true);
+            return;
+        }
+
+        if (FillColorTextBox == null)
+        {
+            ShowSaveNotification("Fill color field not found", isError: true);
+            return;
+        }
+
+        var fillColor = FillColorTextBox.Text?.Trim() ?? "Transparent";
+        
+        // Get current shape properties
+        var (strokeColor, strokeThickness, currentFillColor, strokeStyle) = DrawingCanvasControl.GetSelectedShapeProperties();
+        
+        // Update only the fill color
+        DrawingCanvasControl.UpdateSelectedShapeProperties(
+            strokeColor,
+            strokeThickness,
+            fillColor,
+            strokeStyle
+        );
+        
+        // Update the shape in database only if it's already saved and exists in DB
+        var selectedShapeModel = DrawingCanvasControl.GetSelectedShapeModel();
+        if (selectedShapeModel != null && _dataService != null && _currentCanvas != null)
+        {
+            // Check if shape exists in database
+            bool shapeExistsInDb = false;
+            if (selectedShapeModel.Id != Guid.Empty)
+            {
+                try
+                {
+                    var existingShape = await _dataService.GetShapeByIdAsync(selectedShapeModel.Id);
+                    shapeExistsInDb = existingShape != null;
+                }
+                catch
+                {
+                    shapeExistsInDb = false;
+                }
+            }
+            
+            if (shapeExistsInDb)
+            {
+                // Shape exists in DB - update it
+                try
+                {
+                    selectedShapeModel.FillColor = fillColor;
+                    await _dataService.UpdateShapeAsync(selectedShapeModel);
+                    
+                    // Update canvas last modified date
+                    _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+                    await _dataService.UpdateCanvasAsync(_currentCanvas);
+                    
+                    ShowSaveNotification($"Shape filled with {fillColor} (saved)");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DrawingPage] FillShapeButton_Click - ERROR: {ex.Message}\n{ex.StackTrace}");
+                    ShowSaveNotification("Failed to save fill color to database", isError: true);
+                }
+            }
+            else
+            {
+                // Shape is still in draft (not saved to DB yet) - just update UI, will be saved when user clicks Save
+                ShowSaveNotification($"Shape filled with {fillColor} (will be saved when you click Save)");
+            }
+        }
+        else
+        {
+            ShowSaveNotification($"Shape filled with {fillColor}");
+        }
+    }
+
     private void DeleteShapeButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (DrawingCanvasControl?.SelectedShape == null)
@@ -469,6 +666,11 @@ public sealed partial class DrawingPage : Page
             EditShapeButton.IsEnabled = hasSelection;
         }
         
+        if (FillShapeButton != null)
+        {
+            FillShapeButton.IsEnabled = hasSelection;
+        }
+        
         if (DeleteShapeButton != null)
         {
             DeleteShapeButton.IsEnabled = hasSelection;
@@ -485,30 +687,83 @@ public sealed partial class DrawingPage : Page
         UpdateEditButtonsState();
     }
 
-    private async void DrawingCanvasControl_ShapeDrawingCompleted(object? sender, ShapeDrawingCompletedEventArgs e)
+    private void DrawingCanvasControl_ShapeDrawingCompleted(object? sender, ShapeDrawingCompletedEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShapeDrawingCompleted - START: Type={e.ShapeType}, Canvas={_currentCanvas?.Name ?? "null"}");
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShapeDrawingCompleted - START: Type={e.ShapeType}");
         
-        // Auto-save shape when drawing is completed
-        if (_currentCanvas == null)
+        // Only serialize shape data and update _shapeMap - DO NOT save to database yet
+        // Shapes will only be saved when user clicks Save button
+        if (_drawingService == null || DrawingCanvasControl == null)
         {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _currentCanvas is null, shape will not be saved to database");
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _drawingService or DrawingCanvasControl is null");
             return;
         }
         
-        if (_dataService == null)
+        // Serialize shape data
+        string serializedData = e.ShapeType switch
         {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _dataService is null, shape will not be saved to database");
-            return;
+            ShapeType.Line => _drawingService.SerializeShapeData(new LineShapeData
+            {
+                StartX = e.StartPoint.X,
+                StartY = e.StartPoint.Y,
+                EndX = e.EndPoint.X,
+                EndY = e.EndPoint.Y
+            }),
+            ShapeType.Rectangle => _drawingService.SerializeShapeData(new RectangleShapeData
+            {
+                X = Math.Min(e.StartPoint.X, e.EndPoint.X),
+                Y = Math.Min(e.StartPoint.Y, e.EndPoint.Y),
+                Width = Math.Abs(e.EndPoint.X - e.StartPoint.X),
+                Height = Math.Abs(e.EndPoint.Y - e.StartPoint.Y)
+            }),
+            ShapeType.Oval => _drawingService.SerializeShapeData(new OvalShapeData
+            {
+                CenterX = (e.StartPoint.X + e.EndPoint.X) / 2,
+                CenterY = (e.StartPoint.Y + e.EndPoint.Y) / 2,
+                RadiusX = Math.Abs(e.EndPoint.X - e.StartPoint.X) / 2,
+                RadiusY = Math.Abs(e.EndPoint.Y - e.StartPoint.Y) / 2
+            }),
+            ShapeType.Circle => _drawingService.SerializeShapeData(new CircleShapeData
+            {
+                CenterX = e.StartPoint.X,
+                CenterY = e.StartPoint.Y,
+                Radius = Math.Sqrt(Math.Pow(e.EndPoint.X - e.StartPoint.X, 2) + Math.Pow(e.EndPoint.Y - e.StartPoint.Y, 2))
+            }),
+            ShapeType.Triangle => e.TrianglePoints != null && e.TrianglePoints.Count == 3
+                ? _drawingService.SerializeShapeData(new TriangleShapeData
+                {
+                    Point1X = e.TrianglePoints[0].X,
+                    Point1Y = e.TrianglePoints[0].Y,
+                    Point2X = e.TrianglePoints[1].X,
+                    Point2Y = e.TrianglePoints[1].Y,
+                    Point3X = e.TrianglePoints[2].X,
+                    Point3Y = e.TrianglePoints[2].Y
+                })
+                : string.Empty,
+            ShapeType.Polygon => e.PolygonPoints != null && e.PolygonPoints.Count >= 3
+                ? _drawingService.SerializeShapeData(new PolygonShapeData
+                {
+                    Points = e.PolygonPoints.Select(p => new PointData { X = p.X, Y = p.Y }).ToList()
+                })
+                : string.Empty,
+            _ => string.Empty
+        };
+        
+        // Update the shape in _shapeMap with SerializedData
+        var allShapes = DrawingCanvasControl.GetAllShapeModels();
+        if (allShapes.Count > 0)
+        {
+            // Get the last shape (most recently added)
+            var lastShape = allShapes.Last();
+            if (lastShape.ShapeType == e.ShapeType && string.IsNullOrWhiteSpace(lastShape.SerializedData))
+            {
+                lastShape.SerializedData = serializedData;
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShapeDrawingCompleted - Updated SerializedData for shape: Type={e.ShapeType} (draft, not saved to DB yet)");
+            }
         }
         
-        if (_drawingService == null)
-        {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _drawingService is null, shape will not be saved to database");
-            return;
-        }
-        
-        await SaveShapeAsync(e);
+        // DO NOT save to database - shapes are only saved when user clicks Save button
+        System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - Shape is in draft state, will be saved when user clicks Save");
     }
 
     /// <summary>
@@ -520,129 +775,23 @@ public sealed partial class DrawingPage : Page
         _currentCanvas = canvas;
         if (DrawingCanvasControl != null)
         {
-            DrawingCanvasControl.CanvasModel = canvas;
-            if (!string.IsNullOrEmpty(canvas?.BackgroundColor))
+            try
             {
-                DrawingCanvasControl.BackgroundColor = canvas.BackgroundColor;
+                DrawingCanvasControl.CanvasModel = canvas;
+                if (!string.IsNullOrEmpty(canvas?.BackgroundColor))
+                {
+                    DrawingCanvasControl.BackgroundColor = canvas.BackgroundColor;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SetCanvas - ERROR setting canvas properties: {ex.Message}");
+                // Continue anyway - canvas is still set
             }
         }
         System.Diagnostics.Debug.WriteLine($"[DrawingPage] SetCanvas - END: _currentCanvas is now {(_currentCanvas != null ? $"set (Name: {_currentCanvas.Name}, Id: {_currentCanvas.Id})" : "null")}");
     }
 
-    /// <summary>
-    /// Saves a shape to the database.
-    /// </summary>
-    private async Task SaveShapeAsync(ShapeDrawingCompletedEventArgs args)
-    {
-        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - START: Type={args.ShapeType}");
-        
-        if (_currentCanvas == null || _dataService == null || _drawingService == null)
-        {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveShapeAsync - ERROR: Required services or canvas is null");
-            return;
-        }
-
-        try
-        {
-            string serializedData = args.ShapeType switch
-            {
-                ShapeType.Line => _drawingService.SerializeShapeData(new LineShapeData
-                {
-                    StartX = args.StartPoint.X,
-                    StartY = args.StartPoint.Y,
-                    EndX = args.EndPoint.X,
-                    EndY = args.EndPoint.Y
-                }),
-                ShapeType.Rectangle => _drawingService.SerializeShapeData(new RectangleShapeData
-                {
-                    X = Math.Min(args.StartPoint.X, args.EndPoint.X),
-                    Y = Math.Min(args.StartPoint.Y, args.EndPoint.Y),
-                    Width = Math.Abs(args.EndPoint.X - args.StartPoint.X),
-                    Height = Math.Abs(args.EndPoint.Y - args.StartPoint.Y)
-                }),
-                ShapeType.Oval => _drawingService.SerializeShapeData(new OvalShapeData
-                {
-                    CenterX = (args.StartPoint.X + args.EndPoint.X) / 2,
-                    CenterY = (args.StartPoint.Y + args.EndPoint.Y) / 2,
-                    RadiusX = Math.Abs(args.EndPoint.X - args.StartPoint.X) / 2,
-                    RadiusY = Math.Abs(args.EndPoint.Y - args.StartPoint.Y) / 2
-                }),
-                ShapeType.Circle => _drawingService.SerializeShapeData(new CircleShapeData
-                {
-                    CenterX = args.StartPoint.X,
-                    CenterY = args.StartPoint.Y,
-                    Radius = Math.Sqrt(Math.Pow(args.EndPoint.X - args.StartPoint.X, 2) + Math.Pow(args.EndPoint.Y - args.StartPoint.Y, 2))
-                }),
-                ShapeType.Triangle => args.TrianglePoints != null && args.TrianglePoints.Count == 3
-                    ? _drawingService.SerializeShapeData(new TriangleShapeData
-                    {
-                        Point1X = args.TrianglePoints[0].X,
-                        Point1Y = args.TrianglePoints[0].Y,
-                        Point2X = args.TrianglePoints[1].X,
-                        Point2Y = args.TrianglePoints[1].Y,
-                        Point3X = args.TrianglePoints[2].X,
-                        Point3Y = args.TrianglePoints[2].Y
-                    })
-                    : string.Empty,
-                ShapeType.Polygon => args.PolygonPoints != null && args.PolygonPoints.Count >= 3
-                    ? _drawingService.SerializeShapeData(new PolygonShapeData
-                    {
-                        Points = args.PolygonPoints.Select(p => new PointData { X = p.X, Y = p.Y }).ToList()
-                    })
-                    : string.Empty,
-                _ => string.Empty
-            };
-
-            if (string.IsNullOrEmpty(serializedData))
-                return;
-
-            var shape = _drawingService.CreateShape(
-                args.ShapeType,
-                _currentCanvas.Id,
-                args.StrokeColor,
-                args.StrokeThickness,
-                args.FillColor,
-                serializedData
-            );
-            
-            // Set StrokeStyle from event args
-            shape.StrokeStyle = args.StrokeStyle;
-
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Creating shape: Type={shape.ShapeType}, CanvasId={shape.CanvasId}, SerializedData length={shape.SerializedData?.Length ?? 0}");
-            
-            await _dataService.CreateShapeAsync(shape);
-            
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Shape created successfully with Id: {shape.Id}");
-            
-            // Update the shape entity in _shapeMap with the saved shape (which has the correct Id and SerializedData)
-            if (DrawingCanvasControl != null)
-            {
-                DrawingCanvasControl.UpdateLastShapeEntity(shape);
-            }
-            
-            // Update canvas last modified date
-            if (_currentCanvas != null)
-            {
-                _currentCanvas.LastModifiedDate = DateTime.UtcNow;
-                await _dataService.UpdateCanvasAsync(_currentCanvas);
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Canvas last modified date updated");
-            }
-            
-            // Show save notification (but don't show for every shape to avoid spam)
-            // ShowSaveNotification("Shape saved successfully");
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - END: Success");
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - ERROR: {ex.Message}\n{ex.StackTrace}");
-            if (ex.InnerException != null)
-            {
-                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - InnerException: {ex.InnerException.Message}");
-            }
-            // Error handling - shape save failed
-            ShowSaveNotification("Failed to save shape", isError: true);
-        }
-    }
 
     /// <summary>
     /// Shows a save notification to the user.
@@ -692,13 +841,6 @@ public sealed partial class DrawingPage : Page
     {
         System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - START");
         
-        if (_currentCanvas == null)
-        {
-            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - No canvas selected");
-            ShowSaveNotification("No canvas selected. Please create or open a canvas first.", isError: true);
-            return;
-        }
-
         if (_dataService == null)
         {
             System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - DataService is null");
@@ -706,13 +848,155 @@ public sealed partial class DrawingPage : Page
             return;
         }
 
+        if (_currentProfile == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - No profile selected");
+            ShowSaveNotification("No profile selected. Please select a profile first.", isError: true);
+            await ShowProfileRequiredDialog();
+            return;
+        }
+
         try
         {
-            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Saving canvas: {_currentCanvas.Name} (Id: {_currentCanvas.Id})");
+            // If canvas doesn't exist yet, create it with a name
+            if (_currentCanvas == null)
+            {
+                // Show dialog to get canvas name
+                var nameDialog = new ContentDialog
+                {
+                    Title = "Save Canvas",
+                    PrimaryButtonText = "Save",
+                    SecondaryButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = XamlRoot
+                };
+
+                var stackPanel = new StackPanel { Spacing = 16 };
+                var nameTextBox = new TextBox
+                {
+                    Header = "Canvas Name *",
+                    PlaceholderText = "Enter canvas name",
+                    MaxLength = 200
+                };
+                stackPanel.Children.Add(nameTextBox);
+                nameDialog.Content = stackPanel;
+
+                // Focus on text box when dialog opens
+                nameDialog.Opened += (s, args) => nameTextBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+
+                var result = await nameDialog.ShowAsync();
+                if (result != ContentDialogResult.Primary)
+                {
+                    return; // User cancelled
+                }
+
+                var canvasName = nameTextBox.Text?.Trim();
+                if (string.IsNullOrWhiteSpace(canvasName))
+                {
+                    ShowSaveNotification("Canvas name cannot be empty", isError: true);
+                    return;
+                }
+
+                // Create new canvas
+                _currentCanvas = new CanvasModel
+                {
+                    Name = canvasName,
+                    ProfileId = _currentProfile.Id,
+                    Width = DrawingCanvasControl?.Width != null ? (int)DrawingCanvasControl.Width : _currentProfile.DefaultCanvasWidth,
+                    Height = DrawingCanvasControl?.Height != null ? (int)DrawingCanvasControl.Height : _currentProfile.DefaultCanvasHeight,
+                    BackgroundColor = DrawingCanvasControl?.Background?.ToString() ?? "#FFFFFF"
+                };
+
+                _currentCanvas = await _dataService.CreateCanvasAsync(_currentCanvas);
+                SetCanvas(_currentCanvas);
+                
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Created new canvas: {_currentCanvas.Name} (Id: {_currentCanvas.Id})");
+            }
+            else
+            {
+                // Update existing canvas
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Updating canvas: {_currentCanvas.Name} (Id: {_currentCanvas.Id})");
+                _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+                await _dataService.UpdateCanvasAsync(_currentCanvas);
+            }
             
-            // Update canvas last modified date
-            _currentCanvas.LastModifiedDate = DateTime.UtcNow;
-            await _dataService.UpdateCanvasAsync(_currentCanvas);
+            // Sync shapes: Save all shapes currently on canvas, delete shapes that are no longer on canvas
+            if (DrawingCanvasControl != null && _drawingService != null)
+            {
+                // Get all shapes currently on canvas (draft + saved)
+                var shapesOnCanvas = DrawingCanvasControl.GetAllShapeModels();
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Found {shapesOnCanvas.Count} shapes on canvas");
+                
+                // Get all shapes currently in database for this canvas
+                var shapesInDb = await _dataService.GetShapesByCanvasIdAsync(_currentCanvas.Id);
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Found {shapesInDb.Count} shapes in database");
+                
+                // Create a set of shape IDs currently on canvas (for quick lookup)
+                var shapesOnCanvasIds = new HashSet<Guid>();
+                foreach (var shape in shapesOnCanvas)
+                {
+                    if (shape.Id != Guid.Empty)
+                    {
+                        shapesOnCanvasIds.Add(shape.Id);
+                    }
+                }
+                
+                // Delete shapes that are in DB but no longer on canvas
+                foreach (var dbShape in shapesInDb)
+                {
+                    if (!shapesOnCanvasIds.Contains(dbShape.Id))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Deleting shape from DB: Id={dbShape.Id}, Type={dbShape.ShapeType}");
+                        await _dataService.DeleteShapeAsync(dbShape.Id);
+                    }
+                }
+                
+                // Save/Update all shapes currently on canvas
+                foreach (var shape in shapesOnCanvas)
+                {
+                    if (string.IsNullOrWhiteSpace(shape.SerializedData))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - WARNING: Shape has no SerializedData, skipping");
+                        continue;
+                    }
+                    
+                    shape.CanvasId = _currentCanvas.Id;
+                    
+                    try
+                    {
+                        // Check if shape exists in database
+                        bool shapeExistsInDb = false;
+                        if (shape.Id != Guid.Empty)
+                        {
+                            var existingShape = await _dataService.GetShapeByIdAsync(shape.Id);
+                            shapeExistsInDb = existingShape != null;
+                        }
+                        
+                        if (!shapeExistsInDb)
+                        {
+                            // Shape doesn't exist in DB (new draft or Id was generated but not saved) - create it
+                            // Reset Id to Guid.Empty to let CreateShapeAsync generate a new one
+                            var originalId = shape.Id;
+                            shape.Id = Guid.Empty;
+                            var savedShape = await _dataService.CreateShapeAsync(shape);
+                            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Created new shape: Type={savedShape.ShapeType}, Id={savedShape.Id} (original draft Id was {originalId})");
+                            
+                            // Update the shape in _shapeMap with the saved entity
+                            DrawingCanvasControl.UpdateLastShapeEntity(savedShape);
+                        }
+                        else
+                        {
+                            // Existing shape in DB - update it
+                            await _dataService.UpdateShapeAsync(shape);
+                            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Updated shape: Type={shape.ShapeType}, Id={shape.Id}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - ERROR saving shape: {ex.Message}\n{ex.StackTrace}");
+                    }
+                }
+            }
             
             System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - Canvas saved successfully");
             ShowSaveNotification("Canvas saved successfully");
@@ -1441,5 +1725,27 @@ public sealed partial class DrawingPage : Page
             ShowSaveNotification("Failed to delete template", isError: true);
         }
     }
+
+    /// <summary>
+    /// Toggles the visibility of the drawing tools sidebar.
+    /// </summary>
+    private void ToggleSidebarButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (ToolsPanelColumn != null)
+        {
+            // Toggle sidebar visibility
+            if (ToolsPanelColumn.Width.Value == 0)
+            {
+                // Show sidebar
+                ToolsPanelColumn.Width = new Microsoft.UI.Xaml.GridLength(200);
+            }
+            else
+            {
+                // Hide sidebar
+                ToolsPanelColumn.Width = new Microsoft.UI.Xaml.GridLength(0);
+            }
+        }
+    }
 }
+
 

@@ -94,7 +94,7 @@ public sealed partial class HomePage : Page
         if (result == ContentDialogResult.Primary)
         {
             // Navigate to DrawingPage with selected profile
-            _navigationService?.NavigateTo(typeof(Views.DrawingPage));
+            _navigationService?.NavigateTo(typeof(Views.DrawingPage), ViewModel.SelectedProfile);
         }
     }
 
