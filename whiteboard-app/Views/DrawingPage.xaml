@@ -202,6 +202,13 @@
                         HorizontalAlignment="Stretch"
                         Margin="0,8,0,0" />
                     
+                    <Button
+                        x:Name="LoadTemplateButton"
+                        Content="Load Template"
+                        Click="LoadTemplateButton_Click"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,8,0,0" />
+                    
                     <!-- Canvas Actions -->
                     <TextBlock
                         Text="Canvas Actions"

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,6 +11,8 @@ using Windows.Foundation;
 using Windows.UI;
 using whiteboard_app_data.Enums;
 using whiteboard_app_data.Models;
+using whiteboard_app_data.Models.ShapeTypes;
+using whiteboard_app.Services;
 using CanvasModel = whiteboard_app_data.Models.Canvas;
 using XamlCanvas = Microsoft.UI.Xaml.Controls.Canvas;
 using ShapeModel = whiteboard_app_data.Models.Shape;
@@ -1470,6 +1473,171 @@ public sealed partial class DrawingCanvas : XamlCanvas
 
         // Clear shape map
         _shapeMap.Clear();
+    }
+
+    /// <summary>
+    /// Renders a shape from a template (ShapeModel) onto the canvas.
+    /// </summary>
+    /// <param name="templateShape">The template shape to render.</param>
+    /// <param name="drawingService">The drawing service for deserializing shape data.</param>
+    /// <param name="offsetX">Optional X offset to place the shape at a specific position.</param>
+    /// <param name="offsetY">Optional Y offset to place the shape at a specific position.</param>
+    public void RenderTemplateShape(ShapeModel templateShape, IDrawingService drawingService, double offsetX = 0, double offsetY = 0)
+    {
+        if (templateShape == null || drawingService == null || string.IsNullOrWhiteSpace(templateShape.SerializedData))
+            return;
+
+        XamlShape? xamlShape = null;
+        Brush strokeBrush = CreateStrokeBrush(templateShape.StrokeColor);
+        Brush? fillBrush = templateShape.FillColor == "Transparent" 
+            ? null 
+            : new SolidColorBrush(ParseHexColor(templateShape.FillColor));
+
+        try
+        {
+            switch (templateShape.ShapeType)
+            {
+                case ShapeType.Line:
+                    var lineData = drawingService.DeserializeShapeData<LineShapeData>(templateShape.SerializedData);
+                    if (lineData != null)
+                    {
+                        var line = new Line
+                        {
+                            X1 = lineData.StartX + offsetX,
+                            Y1 = lineData.StartY + offsetY,
+                            X2 = lineData.EndX + offsetX,
+                            Y2 = lineData.EndY + offsetY,
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness
+                        };
+                        ApplyStrokeStyleWithStyle(line, GetStrokeStyleFromShape(line));
+                        xamlShape = line;
+                    }
+                    break;
+
+                case ShapeType.Rectangle:
+                    var rectData = drawingService.DeserializeShapeData<RectangleShapeData>(templateShape.SerializedData);
+                    if (rectData != null)
+                    {
+                        var rect = new Rectangle
+                        {
+                            Width = rectData.Width,
+                            Height = rectData.Height,
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(rect, GetStrokeStyleFromShape(rect));
+                        XamlCanvas.SetLeft(rect, rectData.X + offsetX);
+                        XamlCanvas.SetTop(rect, rectData.Y + offsetY);
+                        xamlShape = rect;
+                    }
+                    break;
+
+                case ShapeType.Oval:
+                    var ovalData = drawingService.DeserializeShapeData<OvalShapeData>(templateShape.SerializedData);
+                    if (ovalData != null)
+                    {
+                        var ellipse = new Ellipse
+                        {
+                            Width = ovalData.RadiusX * 2,
+                            Height = ovalData.RadiusY * 2,
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(ellipse, GetStrokeStyleFromShape(ellipse));
+                        XamlCanvas.SetLeft(ellipse, ovalData.CenterX - ovalData.RadiusX + offsetX);
+                        XamlCanvas.SetTop(ellipse, ovalData.CenterY - ovalData.RadiusY + offsetY);
+                        xamlShape = ellipse;
+                    }
+                    break;
+
+                case ShapeType.Circle:
+                    var circleData = drawingService.DeserializeShapeData<CircleShapeData>(templateShape.SerializedData);
+                    if (circleData != null)
+                    {
+                        var ellipse = new Ellipse
+                        {
+                            Width = circleData.Radius * 2,
+                            Height = circleData.Radius * 2,
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(ellipse, GetStrokeStyleFromShape(ellipse));
+                        XamlCanvas.SetLeft(ellipse, circleData.CenterX - circleData.Radius + offsetX);
+                        XamlCanvas.SetTop(ellipse, circleData.CenterY - circleData.Radius + offsetY);
+                        xamlShape = ellipse;
+                    }
+                    break;
+
+                case ShapeType.Triangle:
+                    var triangleData = drawingService.DeserializeShapeData<TriangleShapeData>(templateShape.SerializedData);
+                    if (triangleData != null)
+                    {
+                        var polygon = new Polygon
+                        {
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        var points = new PointCollection
+                        {
+                            new Point(triangleData.Point1X + offsetX, triangleData.Point1Y + offsetY),
+                            new Point(triangleData.Point2X + offsetX, triangleData.Point2Y + offsetY),
+                            new Point(triangleData.Point3X + offsetX, triangleData.Point3Y + offsetY)
+                        };
+                        polygon.Points = points;
+                        ApplyStrokeStyleWithStyle(polygon, GetStrokeStyleFromShape(polygon));
+                        xamlShape = polygon;
+                    }
+                    break;
+
+                case ShapeType.Polygon:
+                    var polygonData = drawingService.DeserializeShapeData<PolygonShapeData>(templateShape.SerializedData);
+                    if (polygonData != null && polygonData.Points != null && polygonData.Points.Count >= 3)
+                    {
+                        var polygon = new Polygon
+                        {
+                            Stroke = strokeBrush,
+                            StrokeThickness = templateShape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        var points = new PointCollection();
+                        foreach (var pt in polygonData.Points)
+                        {
+                            points.Add(new Point(pt.X + offsetX, pt.Y + offsetY));
+                        }
+                        polygon.Points = points;
+                        ApplyStrokeStyleWithStyle(polygon, GetStrokeStyleFromShape(polygon));
+                        xamlShape = polygon;
+                    }
+                    break;
+            }
+
+            if (xamlShape != null)
+            {
+                Children.Add(xamlShape);
+                
+                // Create a new Shape entity for tracking (not a template, belongs to current canvas)
+                var shapeEntity = new ShapeConcrete
+                {
+                    Id = Guid.NewGuid(),
+                    ShapeType = templateShape.ShapeType,
+                    StrokeColor = templateShape.StrokeColor,
+                    StrokeThickness = templateShape.StrokeThickness,
+                    FillColor = templateShape.FillColor,
+                    SerializedData = templateShape.SerializedData,
+                    CanvasId = CanvasModel?.Id
+                };
+                _shapeMap[xamlShape] = shapeEntity;
+            }
+        }
+        catch (Exception)
+        {
+            // Failed to render template shape - silently fail
+        }
     }
 
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)

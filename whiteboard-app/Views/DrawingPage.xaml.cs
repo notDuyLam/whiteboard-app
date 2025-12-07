@@ -917,6 +917,165 @@ public sealed partial class DrawingPage : Page
     }
 
     /// <summary>
+    /// Handles the Load Template button click event.
+    /// </summary>
+    private async void LoadTemplateButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_dataService == null || _drawingService == null || DrawingCanvasControl == null || _currentCanvas == null)
+        {
+            ShowSaveNotification("Cannot load template: Canvas not available", isError: true);
+            return;
+        }
+
+        try
+        {
+            // Load all templates
+            var templates = await _dataService.GetAllTemplatesAsync();
+
+            if (templates.Count == 0)
+            {
+                ShowSaveNotification("No templates available", isError: true);
+                return;
+            }
+
+            // Show dialog with template list
+            var dialog = new ContentDialog
+            {
+                Title = "Load Template to Canvas",
+                PrimaryButtonText = "Load",
+                SecondaryButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot,
+                MaxWidth = 600
+            };
+
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 400
+            };
+
+            var stackPanel = new StackPanel { Spacing = 12 };
+
+            // Template selection
+            Shape? selectedTemplate = null;
+            
+            // Create simple list of template items
+            foreach (var template in templates)
+            {
+                var templateBorder = new Border
+                {
+                    Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                    BorderThickness = new Microsoft.UI.Xaml.Thickness(1),
+                    CornerRadius = new Microsoft.UI.Xaml.CornerRadius(4),
+                    Padding = new Microsoft.UI.Xaml.Thickness(12),
+                    Margin = new Microsoft.UI.Xaml.Thickness(0, 0, 0, 8),
+                    Tag = template
+                };
+
+                var templatePanel = new StackPanel();
+                var templateNameText = new TextBlock
+                {
+                    Text = template.TemplateName ?? "Unnamed Template",
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    FontSize = 14
+                };
+                var templateTypeText = new TextBlock
+                {
+                    Text = $"Type: {template.ShapeType}",
+                    FontSize = 12,
+                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+                    Margin = new Microsoft.UI.Xaml.Thickness(0, 4, 0, 0)
+                };
+                templatePanel.Children.Add(templateNameText);
+                templatePanel.Children.Add(templateTypeText);
+                templateBorder.Child = templatePanel;
+
+                // Add click handler to select template
+                templateBorder.PointerPressed += (s, args) =>
+                {
+                    // Reset all borders
+                    foreach (var child in stackPanel.Children)
+                    {
+                        if (child is Border b)
+                        {
+                            b.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                        }
+                    }
+                    
+                    // Highlight selected
+                    templateBorder.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.LightBlue);
+                    selectedTemplate = template;
+                };
+
+                stackPanel.Children.Add(templateBorder);
+            }
+
+            scrollViewer.Content = stackPanel;
+            dialog.Content = scrollViewer;
+
+            dialog.PrimaryButtonClick += async (s, args) =>
+            {
+                var deferral = args.GetDeferral();
+                try
+                {
+                    if (selectedTemplate == null)
+                    {
+                        ShowSaveNotification("Please select a template", isError: true);
+                        args.Cancel = true;
+                        return;
+                    }
+
+                    // Render template shape on canvas at center position
+                    var canvasWidth = DrawingCanvasControl.ActualWidth > 0 ? DrawingCanvasControl.ActualWidth : _currentCanvas.Width;
+                    var canvasHeight = DrawingCanvasControl.ActualHeight > 0 ? DrawingCanvasControl.ActualHeight : _currentCanvas.Height;
+                    var offsetX = Math.Max(0, (canvasWidth - 200) / 2);
+                    var offsetY = Math.Max(0, (canvasHeight - 200) / 2);
+
+                    // Render template shape on canvas
+                    DrawingCanvasControl.RenderTemplateShape(selectedTemplate, _drawingService, offsetX, offsetY);
+
+                    // Create shape entity to save to database
+                    // The RenderTemplateShape method renders the shape visually,
+                    // but we need to save it to database separately
+                    var shapeEntity = _drawingService.CreateShape(
+                        selectedTemplate.ShapeType,
+                        _currentCanvas.Id,
+                        selectedTemplate.StrokeColor,
+                        selectedTemplate.StrokeThickness,
+                        selectedTemplate.FillColor,
+                        selectedTemplate.SerializedData
+                    );
+
+                    // Save to database
+                    await _dataService.CreateShapeAsync(shapeEntity);
+
+                    // Update canvas last modified date
+                    _currentCanvas.LastModifiedDate = DateTime.UtcNow;
+                    await _dataService.UpdateCanvasAsync(_currentCanvas);
+
+                    ShowSaveNotification($"Template '{selectedTemplate.TemplateName}' loaded successfully");
+                }
+                catch (Exception ex)
+                {
+                    ShowSaveNotification($"Failed to load template: {ex.Message}", isError: true);
+                    args.Cancel = true;
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
+            };
+
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowSaveNotification($"Failed to load templates: {ex.Message}", isError: true);
+        }
+    }
+
+    /// <summary>
     /// Handles the Manage Templates button click event.
     /// </summary>
     private async void ManageTemplatesButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
