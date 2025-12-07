@@ -1694,6 +1694,226 @@ public sealed partial class DrawingCanvas : XamlCanvas
         }
     }
 
+    /// <summary>
+    /// Renders a shape from the database onto the canvas.
+    /// </summary>
+    /// <param name="shape">The shape entity from database to render.</param>
+    /// <param name="drawingService">The drawing service for deserializing shape data.</param>
+    public void RenderShapeFromDatabase(ShapeModel shape, IDrawingService drawingService)
+    {
+        if (shape == null || drawingService == null || string.IsNullOrWhiteSpace(shape.SerializedData))
+        {
+            return;
+        }
+
+        XamlShape? xamlShape = null;
+        Brush strokeBrush = CreateStrokeBrush(shape.StrokeColor);
+        Brush? fillBrush = shape.FillColor == "Transparent" 
+            ? null 
+            : new SolidColorBrush(ParseHexColor(shape.FillColor));
+
+        try
+        {
+            switch (shape.ShapeType)
+            {
+                case ShapeType.Line:
+                    var lineData = drawingService.DeserializeShapeData<LineShapeData>(shape.SerializedData);
+                    if (lineData != null)
+                    {
+                        var line = new Line
+                        {
+                            X1 = lineData.StartX,
+                            Y1 = lineData.StartY,
+                            X2 = lineData.EndX,
+                            Y2 = lineData.EndY,
+                            Stroke = strokeBrush,
+                            StrokeThickness = shape.StrokeThickness
+                        };
+                        ApplyStrokeStyleWithStyle(line, shape.StrokeStyle);
+                        xamlShape = line;
+                    }
+                    break;
+
+                case ShapeType.Rectangle:
+                    var rectData = drawingService.DeserializeShapeData<RectangleShapeData>(shape.SerializedData);
+                    if (rectData != null)
+                    {
+                        var rect = new Rectangle
+                        {
+                            Width = rectData.Width,
+                            Height = rectData.Height,
+                            Stroke = strokeBrush,
+                            StrokeThickness = shape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(rect, shape.StrokeStyle);
+                        XamlCanvas.SetLeft(rect, rectData.X);
+                        XamlCanvas.SetTop(rect, rectData.Y);
+                        xamlShape = rect;
+                    }
+                    break;
+
+                case ShapeType.Oval:
+                    var ovalData = drawingService.DeserializeShapeData<OvalShapeData>(shape.SerializedData);
+                    if (ovalData != null)
+                    {
+                        var ellipse = new Ellipse
+                        {
+                            Width = ovalData.RadiusX * 2,
+                            Height = ovalData.RadiusY * 2,
+                            Stroke = strokeBrush,
+                            StrokeThickness = shape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(ellipse, shape.StrokeStyle);
+                        var left = ovalData.CenterX - ovalData.RadiusX;
+                        var top = ovalData.CenterY - ovalData.RadiusY;
+                        XamlCanvas.SetLeft(ellipse, left);
+                        XamlCanvas.SetTop(ellipse, top);
+                        xamlShape = ellipse;
+                    }
+                    break;
+
+                case ShapeType.Circle:
+                    var circleData = drawingService.DeserializeShapeData<CircleShapeData>(shape.SerializedData);
+                    if (circleData != null)
+                    {
+                        var ellipse = new Ellipse
+                        {
+                            Width = circleData.Radius * 2,
+                            Height = circleData.Radius * 2,
+                            Stroke = strokeBrush,
+                            StrokeThickness = shape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        ApplyStrokeStyleWithStyle(ellipse, shape.StrokeStyle);
+                        XamlCanvas.SetLeft(ellipse, circleData.CenterX - circleData.Radius);
+                        XamlCanvas.SetTop(ellipse, circleData.CenterY - circleData.Radius);
+                        xamlShape = ellipse;
+                    }
+                    break;
+
+                case ShapeType.Triangle:
+                    var triangleData = drawingService.DeserializeShapeData<TriangleShapeData>(shape.SerializedData);
+                    if (triangleData != null)
+                    {
+                        var polygon = new Polygon
+                        {
+                            Stroke = strokeBrush,
+                            StrokeThickness = shape.StrokeThickness,
+                            Fill = fillBrush
+                        };
+                        var points = new PointCollection
+                        {
+                            new Point(triangleData.Point1X, triangleData.Point1Y),
+                            new Point(triangleData.Point2X, triangleData.Point2Y),
+                            new Point(triangleData.Point3X, triangleData.Point3Y)
+                        };
+                        polygon.Points = points;
+                        ApplyStrokeStyleWithStyle(polygon, shape.StrokeStyle);
+                        xamlShape = polygon;
+                    }
+                    break;
+
+                case ShapeType.Polygon:
+                    try
+                    {
+                        var polygonData = drawingService.DeserializeShapeData<PolygonShapeData>(shape.SerializedData);
+                        if (polygonData != null && polygonData.Points != null && polygonData.Points.Count >= 3)
+                        {
+                            var polygon = new Polygon
+                            {
+                                Stroke = strokeBrush,
+                                StrokeThickness = shape.StrokeThickness,
+                                Fill = fillBrush
+                            };
+                            var points = new PointCollection();
+                            foreach (var pt in polygonData.Points)
+                            {
+                                points.Add(new Point(pt.X, pt.Y));
+                            }
+                            polygon.Points = points;
+                            ApplyStrokeStyleWithStyle(polygon, shape.StrokeStyle);
+                            xamlShape = polygon;
+                        }
+                    }
+                    catch
+                    {
+                        // If Polygon deserialization fails, it might actually be a Line
+                        // Try to deserialize as Line
+                        try
+                        {
+                            var lineDataFallback = drawingService.DeserializeShapeData<LineShapeData>(shape.SerializedData);
+                            if (lineDataFallback != null)
+                            {
+                                var line = new Line
+                                {
+                                    X1 = lineDataFallback.StartX,
+                                    Y1 = lineDataFallback.StartY,
+                                    X2 = lineDataFallback.EndX,
+                                    Y2 = lineDataFallback.EndY,
+                                    Stroke = strokeBrush,
+                                    StrokeThickness = shape.StrokeThickness
+                                };
+                                ApplyStrokeStyleWithStyle(line, shape.StrokeStyle);
+                                xamlShape = line;
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore fallback errors
+                        }
+                    }
+                    break;
+            }
+
+            if (xamlShape != null)
+            {
+                Children.Add(xamlShape);
+                
+                // Map the shape entity from database to the rendered XAML shape
+                // Use the shape entity directly (it already has the correct Id from database)
+                _shapeMap[xamlShape] = shape;
+            }
+        }
+        catch
+        {
+            // Failed to render shape - ignore silently
+        }
+    }
+
+    /// <summary>
+    /// Updates the shape entity in _shapeMap for the most recently added shape.
+    /// This is called after a shape has been saved to the database.
+    /// </summary>
+    /// <param name="savedShape">The shape entity that was saved to the database.</param>
+    public void UpdateLastShapeEntity(ShapeModel savedShape)
+    {
+        if (savedShape == null || Children.Count == 0)
+            return;
+
+        // Find the last XAML shape that was added (most recent)
+        for (int i = Children.Count - 1; i >= 0; i--)
+        {
+            if (Children[i] is XamlShape shape && _shapeMap.ContainsKey(shape))
+            {
+                // Check if this shape matches the saved shape (same type and similar properties)
+                var existingEntity = _shapeMap[shape];
+                if (existingEntity.ShapeType == savedShape.ShapeType &&
+                    existingEntity.StrokeColor == savedShape.StrokeColor &&
+                    existingEntity.StrokeThickness == savedShape.StrokeThickness)
+                {
+                    // This is likely the shape we just saved - update it
+                    _shapeMap[shape] = savedShape;
+                    System.Diagnostics.Debug.WriteLine($"[DrawingCanvas] Updated shape entity in _shapeMap: Id={savedShape.Id}, Type={savedShape.ShapeType}");
+                    return;
+                }
+            }
+        }
+        
+        System.Diagnostics.Debug.WriteLine("[DrawingCanvas] UpdateLastShapeEntity - Could not find matching shape to update");
+    }
+
     private XamlShape? CreatePreviewShape(ShapeType shapeType, Point startPoint, Point endPoint)
     {
         var strokeBrush = new SolidColorBrush(ParseHexColor(StrokeColor));

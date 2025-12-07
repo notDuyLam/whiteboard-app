@@ -14,17 +14,6 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         
-        <!-- Save Notification InfoBar -->
-        <InfoBar
-            x:Name="SaveNotificationInfoBar"
-            Grid.ColumnSpan="2"
-            VerticalAlignment="Top"
-            HorizontalAlignment="Center"
-            Margin="0,10,0,0"
-            IsOpen="False"
-            Title="Save Status"
-            Severity="Success" />
-
         <!-- Drawing Tools Panel -->
         <Border
             Grid.Column="0"
@@ -254,6 +243,17 @@
                 BackgroundColor="#FFFFFF"
                 IsHitTestVisible="True" />
         </ScrollViewer>
+        
+        <!-- Save Notification InfoBar - Overlay on top (must be last to render on top) -->
+        <InfoBar
+            x:Name="SaveNotificationInfoBar"
+            Grid.ColumnSpan="2"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Center"
+            Margin="0,60,0,0"
+            IsOpen="False"
+            Title="Save Status"
+            Severity="Success" />
     </Grid>
 </Page>
 

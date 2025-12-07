@@ -74,24 +74,39 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async Task LoadCanvasShapesAsync(CanvasModel canvas)
     {
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] LoadCanvasShapesAsync - START: Canvas={canvas.Name} (Id: {canvas.Id})");
+        
         if (_dataService == null || _drawingService == null || DrawingCanvasControl == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] LoadCanvasShapesAsync - ERROR: Required services or control is null");
             return;
+        }
 
         try
         {
             // Load shapes from database
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] LoadCanvasShapesAsync - Loading shapes from database...");
             var shapes = await _dataService.GetShapesByCanvasIdAsync(canvas.Id);
+            
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] LoadCanvasShapesAsync - Loaded {shapes.Count} shapes from database");
             
             // Clear existing shapes first
             DrawingCanvasControl.ClearAllShapes();
             
-            // TODO: Render each shape from database
-            // This will be implemented when we add the RenderShapeFromModel method to DrawingCanvas
-            // For now, shapes will be loaded when the canvas is set, but not rendered
-            // The full implementation will be in Phase 23 (Load Canvas functionality)
+            // Render each shape from database
+            int renderedCount = 0;
+            foreach (var shape in shapes)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] LoadCanvasShapesAsync - Rendering shape: Type={shape.ShapeType}, Id={shape.Id}");
+                DrawingCanvasControl.RenderShapeFromDatabase(shape, _drawingService);
+                renderedCount++;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] LoadCanvasShapesAsync - Rendered {renderedCount} shapes");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] LoadCanvasShapesAsync - ERROR: {ex.Message}\n{ex.StackTrace}");
             // Error loading shapes - silently fail for now
         }
     }
@@ -472,11 +487,28 @@ public sealed partial class DrawingPage : Page
 
     private async void DrawingCanvasControl_ShapeDrawingCompleted(object? sender, ShapeDrawingCompletedEventArgs e)
     {
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShapeDrawingCompleted - START: Type={e.ShapeType}, Canvas={_currentCanvas?.Name ?? "null"}");
+        
         // Auto-save shape when drawing is completed
-        if (_currentCanvas != null && _dataService != null && _drawingService != null)
+        if (_currentCanvas == null)
         {
-            await SaveShapeAsync(e);
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _currentCanvas is null, shape will not be saved to database");
+            return;
         }
+        
+        if (_dataService == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _dataService is null, shape will not be saved to database");
+            return;
+        }
+        
+        if (_drawingService == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShapeDrawingCompleted - WARNING: _drawingService is null, shape will not be saved to database");
+            return;
+        }
+        
+        await SaveShapeAsync(e);
     }
 
     /// <summary>
@@ -484,15 +516,17 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     public void SetCanvas(CanvasModel canvas)
     {
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SetCanvas - START: Canvas={canvas?.Name ?? "null"} (Id: {canvas?.Id})");
         _currentCanvas = canvas;
         if (DrawingCanvasControl != null)
         {
             DrawingCanvasControl.CanvasModel = canvas;
-            if (!string.IsNullOrEmpty(canvas.BackgroundColor))
+            if (!string.IsNullOrEmpty(canvas?.BackgroundColor))
             {
                 DrawingCanvasControl.BackgroundColor = canvas.BackgroundColor;
             }
         }
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SetCanvas - END: _currentCanvas is now {(_currentCanvas != null ? $"set (Name: {_currentCanvas.Name}, Id: {_currentCanvas.Id})" : "null")}");
     }
 
     /// <summary>
@@ -500,8 +534,13 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async Task SaveShapeAsync(ShapeDrawingCompletedEventArgs args)
     {
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - START: Type={args.ShapeType}");
+        
         if (_currentCanvas == null || _dataService == null || _drawingService == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveShapeAsync - ERROR: Required services or canvas is null");
             return;
+        }
 
         try
         {
@@ -569,20 +608,37 @@ public sealed partial class DrawingPage : Page
             // Set StrokeStyle from event args
             shape.StrokeStyle = args.StrokeStyle;
 
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Creating shape: Type={shape.ShapeType}, CanvasId={shape.CanvasId}, SerializedData length={shape.SerializedData?.Length ?? 0}");
+            
             await _dataService.CreateShapeAsync(shape);
+            
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Shape created successfully with Id: {shape.Id}");
+            
+            // Update the shape entity in _shapeMap with the saved shape (which has the correct Id and SerializedData)
+            if (DrawingCanvasControl != null)
+            {
+                DrawingCanvasControl.UpdateLastShapeEntity(shape);
+            }
             
             // Update canvas last modified date
             if (_currentCanvas != null)
             {
                 _currentCanvas.LastModifiedDate = DateTime.UtcNow;
                 await _dataService.UpdateCanvasAsync(_currentCanvas);
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - Canvas last modified date updated");
             }
             
-            // Show save notification
-            ShowSaveNotification("Shape saved successfully");
+            // Show save notification (but don't show for every shape to avoid spam)
+            // ShowSaveNotification("Shape saved successfully");
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - END: Success");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - ERROR: {ex.Message}\n{ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveShapeAsync - InnerException: {ex.InnerException.Message}");
+            }
             // Error handling - shape save failed
             ShowSaveNotification("Failed to save shape", isError: true);
         }
@@ -593,19 +649,38 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async void ShowSaveNotification(string message, bool isError = false)
     {
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShowSaveNotification - START: message={message}, isError={isError}");
+        
         if (SaveNotificationInfoBar == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShowSaveNotification - SaveNotificationInfoBar is null!");
+            // Fallback: Use ContentDialog if InfoBar is not available
+            var dialog = new ContentDialog
+            {
+                Title = isError ? "Error" : "Success",
+                Content = message,
+                CloseButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await dialog.ShowAsync();
             return;
+        }
 
+        System.Diagnostics.Debug.WriteLine("[DrawingPage] ShowSaveNotification - Setting InfoBar properties");
         SaveNotificationInfoBar.Message = message;
         SaveNotificationInfoBar.Severity = isError 
             ? InfoBarSeverity.Error 
             : InfoBarSeverity.Success;
+        
+        System.Diagnostics.Debug.WriteLine("[DrawingPage] ShowSaveNotification - Opening InfoBar");
         SaveNotificationInfoBar.IsOpen = true;
+        System.Diagnostics.Debug.WriteLine($"[DrawingPage] ShowSaveNotification - InfoBar.IsOpen = {SaveNotificationInfoBar.IsOpen}");
 
         // Auto-hide after 3 seconds
         await Task.Delay(3000);
         if (SaveNotificationInfoBar != null)
         {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] ShowSaveNotification - Closing InfoBar");
             SaveNotificationInfoBar.IsOpen = false;
         }
     }
@@ -615,23 +690,37 @@ public sealed partial class DrawingPage : Page
     /// </summary>
     private async void SaveCanvasButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (_currentCanvas == null || _dataService == null)
+        System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - START");
+        
+        if (_currentCanvas == null)
         {
-            ShowSaveNotification("No canvas selected", isError: true);
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - No canvas selected");
+            ShowSaveNotification("No canvas selected. Please create or open a canvas first.", isError: true);
+            return;
+        }
+
+        if (_dataService == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - DataService is null");
+            ShowSaveNotification("Data service unavailable", isError: true);
             return;
         }
 
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - Saving canvas: {_currentCanvas.Name} (Id: {_currentCanvas.Id})");
+            
             // Update canvas last modified date
             _currentCanvas.LastModifiedDate = DateTime.UtcNow;
             await _dataService.UpdateCanvasAsync(_currentCanvas);
             
+            System.Diagnostics.Debug.WriteLine("[DrawingPage] SaveCanvasButton_Click - Canvas saved successfully");
             ShowSaveNotification("Canvas saved successfully");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            ShowSaveNotification("Failed to save canvas", isError: true);
+            System.Diagnostics.Debug.WriteLine($"[DrawingPage] SaveCanvasButton_Click - ERROR: {ex.Message}\n{ex.StackTrace}");
+            ShowSaveNotification($"Failed to save canvas: {ex.Message}", isError: true);
         }
     }
 

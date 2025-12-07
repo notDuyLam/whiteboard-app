@@ -163,12 +163,111 @@ public class DataService : IDataService
     // Shape operations
     public async Task<List<Shape>> GetShapesByCanvasIdAsync(Guid canvasId)
     {
-        // Use ShapeConcretes to avoid discriminator issues
-        return await _context.ShapeConcretes
-            .Where(s => s.CanvasId == canvasId)
-            .OrderBy(s => s.CreatedDate)
-            .Cast<Shape>()
-            .ToListAsync();
+        System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - START: canvasId={canvasId}");
+        try
+        {
+            // Use raw SQL to avoid discriminator issues when materializing entities
+            // Query only the fields we need and create ShapeConcrete objects manually
+            var connection = _context.Database.GetDbConnection();
+            var wasOpen = connection.State == System.Data.ConnectionState.Open;
+            if (!wasOpen)
+            {
+                await connection.OpenAsync();
+            }
+            
+            try
+            {
+                // First, let's check what CanvasId values actually exist in the database
+                using var checkCommand = connection.CreateCommand();
+                checkCommand.CommandText = "SELECT DISTINCT CanvasId FROM Shapes WHERE CanvasId IS NOT NULL LIMIT 10";
+                var canvasIds = new List<string>();
+                using (var canvasIdReader = await checkCommand.ExecuteReaderAsync())
+                {
+                    while (await canvasIdReader.ReadAsync())
+                    {
+                        if (!canvasIdReader.IsDBNull(0))
+                        {
+                            canvasIds.Add(canvasIdReader.GetString(0));
+                        }
+                    }
+                }
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - Found CanvasIds in database: {string.Join(", ", canvasIds)}");
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - Looking for CanvasId: {canvasId.ToString()}");
+                
+                // Check if there are any shapes with this CanvasId at all
+                // Use UPPER() to handle case-insensitive comparison since SQLite stores GUIDs in different cases
+                using var checkCommand2 = connection.CreateCommand();
+                checkCommand2.CommandText = "SELECT COUNT(*) FROM Shapes WHERE UPPER(CanvasId) = UPPER(@canvasId)";
+                var checkParam = checkCommand2.CreateParameter();
+                checkParam.ParameterName = "@canvasId";
+                checkParam.Value = canvasId.ToString();
+                checkCommand2.Parameters.Add(checkParam);
+                var totalCount = Convert.ToInt32(await checkCommand2.ExecuteScalarAsync());
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - Total shapes with CanvasId {canvasId}: {totalCount}");
+                
+                // Also check without IsTemplate filter
+                using var checkCommand3 = connection.CreateCommand();
+                checkCommand3.CommandText = "SELECT COUNT(*) FROM Shapes WHERE UPPER(CanvasId) = UPPER(@canvasId) AND IsTemplate = 0";
+                var checkParam2 = checkCommand3.CreateParameter();
+                checkParam2.ParameterName = "@canvasId";
+                checkParam2.Value = canvasId.ToString();
+                checkCommand3.Parameters.Add(checkParam2);
+                var nonTemplateCount = Convert.ToInt32(await checkCommand3.ExecuteScalarAsync());
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - Non-template shapes with CanvasId {canvasId}: {nonTemplateCount}");
+                
+                using var command = connection.CreateCommand();
+                command.CommandText = @"
+                    SELECT Id, ShapeType, StrokeColor, StrokeThickness, FillColor, 
+                           IsTemplate, TemplateName, CreatedDate, CanvasId, SerializedData, StrokeStyle
+                    FROM Shapes 
+                    WHERE UPPER(CanvasId) = UPPER(@canvasId) AND IsTemplate = 0
+                    ORDER BY CreatedDate";
+                
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = "@canvasId";
+                parameter.Value = canvasId.ToString();
+                command.Parameters.Add(parameter);
+                
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - Executing query with CanvasId: {canvasId.ToString()}");
+                
+                var shapes = new List<ShapeConcrete>();
+                using var reader = await command.ExecuteReaderAsync();
+                
+                while (await reader.ReadAsync())
+                {
+                    var shape = new ShapeConcrete
+                    {
+                        Id = reader.GetGuid(0),
+                        ShapeType = (whiteboard_app_data.Enums.ShapeType)reader.GetInt32(1),
+                        StrokeColor = reader.IsDBNull(2) ? "#000000" : reader.GetString(2),
+                        StrokeThickness = reader.GetDouble(3),
+                        FillColor = reader.IsDBNull(4) ? "Transparent" : reader.GetString(4),
+                        IsTemplate = reader.GetBoolean(5),
+                        TemplateName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CreatedDate = reader.GetDateTime(7),
+                        CanvasId = reader.IsDBNull(8) ? (Guid?)null : reader.GetGuid(8),
+                        SerializedData = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
+                        StrokeStyle = reader.IsDBNull(10) ? whiteboard_app_data.Enums.StrokeStyle.Solid : (whiteboard_app_data.Enums.StrokeStyle)reader.GetInt32(10)
+                    };
+                    shapes.Add(shape);
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - SUCCESS: Found {shapes.Count} shapes for canvas {canvasId}");
+                return shapes.Cast<Shape>().ToList();
+            }
+            finally
+            {
+                if (!wasOpen)
+                {
+                    await connection.CloseAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DataService] GetShapesByCanvasIdAsync - ERROR: {ex.Message}\n{ex.StackTrace}");
+            throw;
+        }
     }
 
     public async Task<List<Shape>> GetAllTemplatesAsync()
@@ -293,6 +392,7 @@ public class DataService : IDataService
 
     public async Task<Shape> CreateShapeAsync(Shape shape)
     {
+        System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - START: Type={shape.ShapeType}, CanvasId={shape.CanvasId}, IsTemplate={shape.IsTemplate}");
         try
         {
             shape.Id = Guid.NewGuid();
@@ -312,13 +412,30 @@ public class DataService : IDataService
                 concrete.ShapeType = shape.ShapeType;
             }
             
-            _context.Shapes.Add(shape);
-            await _context.SaveChangesAsync();
+            System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - Adding shape to context: Id={shape.Id}, CanvasId={shape.CanvasId}, SerializedData length={shape.SerializedData?.Length ?? 0}");
             
+            _context.Shapes.Add(shape);
+            var savedCount = await _context.SaveChangesAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - SaveChangesAsync returned: {savedCount} entities saved");
+            
+            // Verify the shape was saved correctly by querying it back
+            var verifyShape = await _context.ShapeConcretes.FindAsync(shape.Id);
+            if (verifyShape != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - Verified saved shape: Id={verifyShape.Id}, CanvasId={verifyShape.CanvasId}, IsTemplate={verifyShape.IsTemplate}");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - WARNING: Could not verify saved shape!");
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - SUCCESS: Shape saved with Id={shape.Id}");
             return shape;
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[DataService] CreateShapeAsync - ERROR: {ex.Message}\n{ex.StackTrace}");
             throw;
         }
     }
