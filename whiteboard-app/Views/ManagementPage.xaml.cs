@@ -12,16 +12,36 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using whiteboard_app.Services;
 using whiteboard_app_data.Enums;
+using CanvasModel = whiteboard_app_data.Models.Canvas;
 
 namespace whiteboard_app.Views;
 
 /// <summary>
 /// Management page - Step 1: BreadcrumbBar and Dashboard UI (no data loading yet).
 /// </summary>
+/// <summary>
+/// Wrapper class for Canvas display.
+/// </summary>
+public class CanvasDisplayItem
+{
+    public CanvasModel Canvas { get; set; }
+    public string FormattedCreatedDate { get; set; } = string.Empty;
+    public string FormattedLastModifiedDate { get; set; } = string.Empty;
+
+    public CanvasDisplayItem(CanvasModel canvas)
+    {
+        Canvas = canvas;
+        FormattedCreatedDate = canvas.CreatedDate.ToString("yyyy-MM-dd HH:mm");
+        FormattedLastModifiedDate = canvas.LastModifiedDate.ToString("yyyy-MM-dd HH:mm");
+    }
+}
+
 public sealed partial class ManagementPage : Page
 {
     private IDataService? _dataService;
     private INavigationService? _navigationService;
+    private string _currentView = "Dashboard";
+    private List<CanvasDisplayItem> _allCanvases = new();
     
     // Chart data
     public ISeries[] ShapeTypeSeries { get; set; } = Array.Empty<ISeries>();
@@ -92,6 +112,8 @@ public sealed partial class ManagementPage : Page
         
         try
         {
+            _currentView = currentPage;
+            
             // Check if BreadcrumbBar is initialized
             if (ManagementBreadcrumbBar == null)
             {
@@ -115,6 +137,67 @@ public sealed partial class ManagementPage : Page
         {
             System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateBreadcrumb error: {ex.Message}\n{ex.StackTrace}");
         }
+    }
+
+    private void BreadcrumbBar_ItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    {
+        try
+        {
+            if (args.Item is string item)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ManagementPage] Breadcrumb clicked: {item}");
+                
+                if (item == "Management" || item == "Dashboard")
+                {
+                    ShowDashboard();
+                }
+                else if (item == "Canvas Manager")
+                {
+                    ShowCanvasManager();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] BreadcrumbBar_ItemClicked error: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    private void ShowDashboard()
+    {
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] ShowDashboard - START");
+        
+        _currentView = "Dashboard";
+        UpdateBreadcrumb("Dashboard");
+        
+        // Simple visibility switching
+        DashboardView.Visibility = Visibility.Visible;
+        CanvasManagerView.Visibility = Visibility.Collapsed;
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] ShowDashboard - END");
+    }
+
+    private void ShowCanvasManager()
+    {
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] ShowCanvasManager - START");
+        
+        _currentView = "Canvas Manager";
+        UpdateBreadcrumb("Canvas Manager");
+        
+        // Simple visibility switching
+        DashboardView.Visibility = Visibility.Collapsed;
+        CanvasManagerView.Visibility = Visibility.Visible;
+        
+        // Load canvas manager data
+        _ = LoadCanvasesAsync();
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] ShowCanvasManager - END");
+    }
+
+    private void CanvasManagerButton_Click(object sender, RoutedEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] CanvasManagerButton clicked");
+        ShowCanvasManager();
     }
 
     // ==================== DASHBOARD DATA LOADING ====================
@@ -353,6 +436,135 @@ public sealed partial class ManagementPage : Page
             System.Diagnostics.Debug.WriteLine($"[ManagementPage] UpdateTopTemplatesChart - ERROR: {ex.Message}\n{ex.StackTrace}");
             TopTemplatesSeries = Array.Empty<ISeries>();
             XAxis = Array.Empty<Axis>();
+        }
+    }
+
+    // ==================== CANVAS MANAGER DATA LOADING ====================
+    
+    private async Task LoadCanvasesAsync()
+    {
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] LoadCanvasesAsync - START");
+        
+        if (_dataService == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] DataService is null");
+            return;
+        }
+
+        try
+        {
+            CanvasManagerLoadingProgressRing.Visibility = Visibility.Visible;
+            CanvasManagerLoadingProgressRing.IsActive = true;
+            CanvasesGridView.Visibility = Visibility.Collapsed;
+            EmptyStateTextBlock.Visibility = Visibility.Collapsed;
+
+            // Load all canvases
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading all profiles...");
+            var profiles = await _dataService.GetAllProfilesAsync();
+            var allCanvasesRaw = new List<CanvasModel>();
+            
+            System.Diagnostics.Debug.WriteLine("[ManagementPage] Loading canvases for each profile...");
+            foreach (var profile in profiles)
+            {
+                var canvases = await _dataService.GetCanvasesByProfileIdAsync(profile.Id);
+                allCanvasesRaw.AddRange(canvases);
+            }
+
+            // Sort and create display items
+            var sortedCanvases = allCanvasesRaw.OrderByDescending(c => c.LastModifiedDate).ToList();
+            _allCanvases = sortedCanvases.Select(c => new CanvasDisplayItem(c)).ToList();
+
+            CanvasesGridView.ItemsSource = _allCanvases;
+
+            if (_allCanvases.Count == 0)
+            {
+                EmptyStateTextBlock.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                CanvasesGridView.Visibility = Visibility.Visible;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Loaded {_allCanvases.Count} canvases");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Error loading canvases: {ex.Message}");
+            
+            var dialog = new ContentDialog
+            {
+                Title = "Error",
+                Content = $"Failed to load canvases: {ex.Message}",
+                CloseButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            CanvasManagerLoadingProgressRing.Visibility = Visibility.Collapsed;
+            CanvasManagerLoadingProgressRing.IsActive = false;
+        }
+        
+        System.Diagnostics.Debug.WriteLine("[ManagementPage] LoadCanvasesAsync - END");
+    }
+
+    private void CanvasesGridView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is CanvasDisplayItem item)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Canvas clicked: {item.Canvas.Name}");
+            _navigationService?.NavigateTo(typeof(DrawingPage), item.Canvas);
+        }
+    }
+
+    private void OpenCanvasButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is CanvasDisplayItem item)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ManagementPage] Open canvas: {item.Canvas.Name}");
+            _navigationService?.NavigateTo(typeof(DrawingPage), item.Canvas);
+        }
+    }
+
+    private async void DeleteCanvasButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is CanvasDisplayItem item && _dataService != null)
+        {
+            var canvas = item.Canvas;
+            var dialog = new ContentDialog
+            {
+                Title = "Delete Canvas",
+                Content = $"Are you sure you want to delete canvas '{canvas.Name}'? This action cannot be undone.",
+                PrimaryButtonText = "Delete",
+                SecondaryButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Secondary,
+                XamlRoot = XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ManagementPage] Deleting canvas: {canvas.Name}");
+                    await _dataService.DeleteCanvasAsync(canvas.Id);
+                    await LoadCanvasesAsync(); // Refresh list
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ManagementPage] Delete error: {ex.Message}");
+                    
+                    var errorDialog = new ContentDialog
+                    {
+                        Title = "Error",
+                        Content = $"Failed to delete canvas: {ex.Message}",
+                        CloseButtonText = "OK",
+                        XamlRoot = XamlRoot
+                    };
+                    await errorDialog.ShowAsync();
+                }
+            }
         }
     }
 }

@@ -93,15 +93,8 @@ public sealed partial class HomePage : Page
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            // For now, show a message since DrawingPage will be created later
-            var infoDialog = new ContentDialog
-            {
-                Title = "Drawing Page",
-                Content = "Drawing page will be available soon. Please create a canvas first using the 'Create Canvas' button.",
-                CloseButtonText = "OK",
-                XamlRoot = XamlRoot
-            };
-            await infoDialog.ShowAsync();
+            // Navigate to DrawingPage with selected profile
+            _navigationService?.NavigateTo(typeof(Views.DrawingPage));
         }
     }
 
